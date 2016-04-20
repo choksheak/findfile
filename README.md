@@ -21,14 +21,20 @@ findfile is designed to be extremely easy to install and use. Follow these steps
 
 ### Download Latest Release
 
-Latest release version: 0.4.20160420
-
 The releases are in the form of a single, standalone executable file only. This means that you do not need to install any supporting libraries in order to run the program. But note that the flip side of this is that these executables tend to be larger than what you would find in other native executables because they have to bake in all supporting libraries into one file.
 
 Don't worry. This is not a piece of malware or spyware! If you are skeptical, just download the full source code from GitHub (download zip from website or run `git clone https://github.com/choksheak/findfile`), inspect the code thoroughly, and compile it for yourself. findfile does not ever make or require any network connections.
 
-- [ff.exe - Windows AMD64 (native executable in a zip file)] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420.windows-amd64.zip?raw=true)
-- [ff - Ubuntu Linux AMD64 (native executable in a zip file)] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420-ubuntu-linux-amd64.zip?raw=true)
+##### Download Links
+
+Latest release version: 0.4.20160420
+
+- [Windows X64/AMD64 -- findfile-0.4.20160420.windows-amd64.zip] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420.windows-amd64.zip?raw=true)
+- [Ubuntu Linux X64/AMD64 -- findfile-0.4.20160420-ubuntu-linux-amd64.zip] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420-ubuntu-linux-amd64.zip?raw=true)
+
+If you need the software for a different OS/Architecture, please feel free to build it yourself. You will need to install [Go] (https://golang.org/dl/), but will not need to install Git, to do the local build:
+
+- [findfile source tree -- master.zip] (https://github.com/choksheak/findfile/archive/master.zip)
 
 ### Why is it written in the Go language?
 
