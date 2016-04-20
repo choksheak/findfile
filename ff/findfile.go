@@ -22,16 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/*
-findfile.go
-
-A general file searching utility similar to a combination of the find and grep commands in Linux. This is needed because both find and grep have quite unintuitive command line interfaces for doing file content searches. Besides, there is no easy way to customize the output so that it looks more human-readable.
-
-findfile is not meant to replace the Linux find and grep commands.
-*/
-
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bufio"
@@ -56,10 +47,14 @@ import (
 
 // Global variables used during search.
 
+var writeNoisyOutput = func(format string, a ...interface{}) {}
 var searchStringArgs []string
 var readableSearchString string
 var searchStringArgsToUse []string
+var searchStringArgsToUseCount []int
 var searchStringIntArrayToUse [][]int
+var searchStringArgsToExclude []string
+var searchStringIntArrayToExclude [][]int
 var searchStartTime time.Time
 var showFileNamesOnly bool
 var numDirsRead int64
@@ -114,7 +109,8 @@ var fileNameIncludeFilters []string
 var fileNameExcludeFilters []string
 var dirNameIncludeFilters []string
 var dirNameExcludeFilters []string
-var compiledRegexes []*regexp.Regexp
+var searchStringRegexesToUse []*regexp.Regexp
+var searchStringRegexesToExclude []*regexp.Regexp
 
 var currentMatchesPhrase string
 var outputFormatString = outputFormatDefault
@@ -161,6 +157,7 @@ func performArgumentActions() {
 // Search preparation.
 
 func performSearch() {
+	setupNoisyOutput()
 	prepareSearchString()
 	prepareStartingDir()
 	setupOutputFile()
@@ -172,6 +169,12 @@ func performSearch() {
 	startSearching()
 	printTiming()
 	finalizeOutputFile()
+}
+
+func setupNoisyOutput() {
+	if !optionQuiet.value {
+		writeNoisyOutput = putln
+	}
 }
 
 func prepareSearchString() {
@@ -186,26 +189,66 @@ func prepareSearchString() {
 
 	searchStringArgs = nonOptionArguments
 
+	// Handle duplicate search strings.
+	ss := make([]string, len(searchStringArgs))
 	if optionIgnoreCase.value {
-		searchStringArgsToUse = make([]string, len(searchStringArgs))
+		for pos, s := range searchStringArgs {
+			ss[pos] = strings.ToLower(s)
+		}
 	} else {
-		searchStringArgsToUse = searchStringArgs
+		copy(ss, searchStringArgs)
 	}
 
-	searchStringIntArrayToUse = make([][]int, len(searchStringArgs))
+	// Form array without duplicate strings and count of each string.
+	searchStringArgsToUse = make([]string, 0, len(ss))
+	searchStringArgsToUseCount = make([]int, 0, len(ss))
 
-	for i := 0; i < len(searchStringArgs); i++ {
-		searchStringArgsToUse[i] = searchStringArgs[i]
-		if optionIgnoreCase.value {
-			searchStringArgsToUse[i] = strings.ToLower(searchStringArgs[i])
+	for i := 0; i < len(ss); i++ {
+		if ss[i] == "" {
+			continue
 		}
+		count := 1
+		for j := i + 1; j < len(ss); j++ {
+			if ss[j] == "" {
+				continue
+			}
+			if ss[i] == ss[j] {
+				count++
+				ss[j] = ""
+			}
+		}
+		searchStringArgsToUse = append(searchStringArgsToUse, ss[i])
+		searchStringArgsToUseCount = append(searchStringArgsToUseCount, count)
+	}
+
+	// Convert into integer array.
+	searchStringIntArrayToUse = make([][]int, len(searchStringArgsToUse))
+
+	for i := 0; i < len(searchStringArgsToUse); i++ {
 		searchStringIntArrayToUse[i] = stringToIntArray(searchStringArgsToUse[i])
 	}
 
+	// This string is for printing to output only.
 	if len(searchStringArgs) == 1 {
 		readableSearchString = "\"" + searchStringArgs[0] + "\""
 	} else {
 		readableSearchString = "\"" + strings.Join(searchStringArgs, "\" + \"") + "\""
+	}
+
+	// Exclude strings.
+	if optionExcludeStrings.value != "" {
+		searchStringArgsToExclude = splitAndTrim(optionExcludeStrings.value, ";")
+
+		if optionIgnoreCase.value {
+			for i := 0; i < len(searchStringArgsToExclude); i++ {
+				searchStringArgsToExclude[i] = strings.ToLower(searchStringArgsToExclude[i])
+			}
+		}
+
+		searchStringIntArrayToExclude = make([][]int, len(searchStringArgsToExclude))
+		for i := 0; i < len(searchStringArgsToExclude); i++ {
+			searchStringIntArrayToExclude[i] = stringToIntArray(searchStringArgsToExclude[i])
+		}
 	}
 }
 
@@ -279,7 +322,7 @@ func finalizeOutputFile() {
 		outputFileHandle.Close()
 		outputFileHandle = nil
 
-		writeNoisyOutput(fmt.Sprintf("Wrote output to file: %v%v", optionOutputFile.value, osNewLine))
+		writeNoisyOutput("Wrote output to file: %v", optionOutputFile.value)
 	}
 
 	// Open in external editor if needed.
@@ -289,12 +332,6 @@ func finalizeOutputFile() {
 		if err != nil {
 			putln("Cannot execute external editor \"%v\": %v", optionEditor.value, err)
 		}
-	}
-}
-
-func writeNoisyOutput(str string) {
-	if !optionQuiet.value {
-		puts(str)
 	}
 }
 
@@ -320,9 +357,15 @@ func createContextLines(numLines int) contextLines {
 }
 
 func splitAndTrim(str, delimiter string) []string {
-	array := strings.Split(str, delimiter)
-	for i := len(array) - 1; i >= 0; i-- {
-		array[i] = strings.TrimSpace(array[i])
+	a := strings.Split(str, delimiter)
+	array := make([]string, 0, len(a))
+	for i := 0; i < len(a); i++ {
+		a[i] = strings.TrimSpace(a[i])
+
+		// Remove empty strings.
+		if a[i] != "" {
+			array = append(array, a[i])
+		}
 	}
 	return array
 }
@@ -337,18 +380,18 @@ func prepareNameIncludeExcludeFilters() {
 	dirNameIncludeFilters = []string{}
 	dirNameExcludeFilters = []string{}
 
-	// Includes.
-	if optionInclude.value != "" {
-		fileNameIncludeFilters = append(fileNameIncludeFilters, splitAndTrim(optionInclude.value, ";")...)
+	// Include files.
+	if optionIncludeFiles.value != "" {
+		fileNameIncludeFilters = append(fileNameIncludeFilters, splitAndTrim(optionIncludeFiles.value, ";")...)
 	}
 
 	if optionIncludeDirs.value != "" {
 		dirNameIncludeFilters = append(dirNameIncludeFilters, splitAndTrim(optionIncludeDirs.value, ";")...)
 	}
 
-	// Excludes.
-	if optionExclude.value != "" {
-		fileNameExcludeFilters = append(fileNameExcludeFilters, splitAndTrim(optionExclude.value, ";")...)
+	// Exclude files.
+	if optionExcludeFiles.value != "" {
+		fileNameExcludeFilters = append(fileNameExcludeFilters, splitAndTrim(optionExcludeFiles.value, ";")...)
 	}
 
 	if optionExcludeDirs.value != "" {
@@ -361,8 +404,16 @@ func prepareRegexMatching() {
 		return
 	}
 
-	compiledRegexes = make([]*regexp.Regexp, len(searchStringArgsToUse))
-	for pos, expr := range searchStringArgsToUse {
+	searchStringRegexesToUse = convertToRegexArray(searchStringArgsToUse)
+
+	if searchStringArgsToExclude != nil {
+		searchStringRegexesToExclude = convertToRegexArray(searchStringArgsToExclude)
+	}
+}
+
+func convertToRegexArray(array []string) []*regexp.Regexp {
+	regexes := make([]*regexp.Regexp, len(array))
+	for pos, expr := range array {
 		if optionWholeWord.value {
 			expr = `\b` + expr + `\b`
 		}
@@ -372,8 +423,9 @@ func prepareRegexMatching() {
 			putln("Invalid regex given: \"%v\"", expr)
 			exit(1)
 		}
-		compiledRegexes[pos] = regex
+		regexes[pos] = regex
 	}
+	return regexes
 }
 
 func prepareOutputFormat() {
@@ -485,7 +537,7 @@ func printTiming() {
 			elapsed,
 			numDirsRead,
 			numFilesRead,
-			numBytesRead)
+			addCommasToInt(numBytesRead))
 	}
 }
 
@@ -501,8 +553,8 @@ func startSearching() {
 		return
 	}
 
-	writeNoisyOutput(fmt.Sprintf("%v=== Searching for %v %v in dir: %v ===%v",
-		osNewLine, searchType, readableSearchString, optionDir.value, osNewLine))
+	writeNoisyOutput("%v=== Searching for %v %v in dir: %v ===",
+		osNewLine, searchType, readableSearchString, optionDir.value)
 
 	// Make up for one missing newline.
 	if !strings.HasPrefix(outputFormatString, "%n") || showFileNamesOnly {
@@ -518,8 +570,8 @@ func startSearching() {
 		}
 	}
 
-	writeNoisyOutput(fmt.Sprintf("%v=== Found %v %v %v in dir: %v ===%v",
-		osNewLine, currentMatchCount, searchType, readableSearchString, optionDir.value, osNewLine))
+	writeNoisyOutput("%v=== Found %v %v %v in dir: %v ===",
+		osNewLine, currentMatchCount, searchType, readableSearchString, optionDir.value)
 }
 
 type fileOrDirWithDepth struct {
@@ -589,9 +641,9 @@ func searchDir(dir string) {
 }
 
 func hasAnyIncludeExcludeFilters() bool {
-	return optionInclude.value != "" ||
+	return optionIncludeFiles.value != "" ||
 		optionIncludeDirs.value != "" ||
-		optionExclude.value != "" ||
+		optionExcludeFiles.value != "" ||
 		optionExcludeDirs.value != ""
 }
 
@@ -755,7 +807,7 @@ func searchFileContents() {
 	fileHandle, err := os.Open(currentFilePath)
 	if err != nil {
 		// This output is usually unnecessary, but cannot be sure.
-		writeNoisyOutput(fmt.Sprintf("Cannot read file: %v%v", err, osNewLine))
+		writeNoisyOutput("Cannot read file %v: %v", currentFilePath, err)
 		return
 	}
 	defer fileHandle.Close()
@@ -1005,7 +1057,17 @@ func addMatchSpan(beginIndex, endIndex int) {
 func getMatchIndexesByRegexMatch(line string) {
 	resetCurrentLineMatchIndexInfo()
 
-	for _, regex := range compiledRegexes {
+	// Exclude if matches any.
+	if searchStringRegexesToExclude != nil {
+		for _, regex := range searchStringRegexesToExclude {
+			if regex.MatchString(line) {
+				return
+			}
+		}
+	}
+
+	// Include if matches all.
+	for _, regex := range searchStringRegexesToUse {
 		arrayOfIndexes := regex.FindAllStringIndex(line, -1)
 		if arrayOfIndexes == nil {
 			return
@@ -1014,15 +1076,27 @@ func getMatchIndexesByRegexMatch(line string) {
 			addMatchSpan(indexes[0], indexes[1])
 		}
 	}
+
 	currentLineMatchIndexInfo.matched = true
 }
 
 func isLineMatchingRegex(line string) bool {
-	for _, regex := range compiledRegexes {
+	// Exclude if matches any.
+	if searchStringRegexesToExclude != nil {
+		for _, regex := range searchStringRegexesToExclude {
+			if regex.MatchString(line) {
+				return false
+			}
+		}
+	}
+
+	// Include if matches all.
+	for _, regex := range searchStringRegexesToUse {
 		if !regex.MatchString(line) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -1032,9 +1106,13 @@ func isLineMatchingRegex(line string) bool {
 func getMatchIndexesByExactMatch(array []int) {
 	resetCurrentLineMatchIndexInfo()
 
-	for _, searchStringIntArray := range searchStringIntArrayToUse {
+	if searchStringIntArrayToExclude != nil && isMatchingIntArray(array, searchStringIntArrayToExclude, true) {
+		return
+	}
+
+	for pos, searchStringIntArray := range searchStringIntArrayToUse {
 		stringStartIndex := 0
-		hadMatch := false
+		matchCount := 0
 		for {
 			beginIndex := intArrayIndexOf(array, searchStringIntArray, stringStartIndex)
 
@@ -1059,7 +1137,9 @@ func getMatchIndexesByExactMatch(array []int) {
 			}
 
 			if beginIndex < 0 {
-				if !hadMatch {
+				// Match at least the given number of times.
+				if matchCount < searchStringArgsToUseCount[pos] {
+					// No need to remove from match span because it will not be used anyway.
 					return
 				}
 				break
@@ -1067,9 +1147,14 @@ func getMatchIndexesByExactMatch(array []int) {
 
 			endIndex := beginIndex + len(searchStringIntArray)
 			addMatchSpan(beginIndex, endIndex)
-			hadMatch = true
+			matchCount++
 
 			if endIndex >= len(array) {
+				// Match at least the given number of times.
+				if matchCount < searchStringArgsToUseCount[pos] {
+					// No need to remove from match span because it will not be used anyway.
+					return
+				}
 				break
 			}
 			stringStartIndex = endIndex
@@ -1080,7 +1165,14 @@ func getMatchIndexesByExactMatch(array []int) {
 }
 
 func isLineMatchingIntArray(array []int) bool {
-	for _, searchStringIntArray := range searchStringIntArrayToUse {
+	if searchStringIntArrayToExclude != nil && isMatchingIntArray(array, searchStringIntArrayToExclude, true) {
+		return false
+	}
+	return isMatchingIntArray(array, searchStringIntArrayToUse, false)
+}
+
+func isMatchingIntArray(array []int, toFindArray [][]int, matchAny bool) bool {
+	for _, searchStringIntArray := range toFindArray {
 		stringStartIndex := 0
 		for {
 			beginIndex := intArrayIndexOf(array, searchStringIntArray, stringStartIndex)
@@ -1091,6 +1183,9 @@ func isLineMatchingIntArray(array []int) bool {
 					if (beginIndex > 0) &&
 						(!isNonWordChar(rune(array[beginIndex])) &&
 							!isNonWordChar(rune(array[beginIndex-1]))) {
+						if matchAny {
+							return true
+						}
 						stringStartIndex = beginIndex + len(searchStringIntArray)
 						continue
 					} else {
@@ -1099,17 +1194,29 @@ func isLineMatchingIntArray(array []int) bool {
 							(!isNonWordChar(rune(array[endIndex])) &&
 								!isNonWordChar(rune(array[endIndex-1]))) {
 							stringStartIndex = beginIndex + len(searchStringIntArray)
+							if matchAny {
+								return true
+							}
 							continue
 						}
 					}
 				}
+				if matchAny {
+					return true
+				}
 				break
+			} else {
+				if matchAny {
+					break
+				}
+				return false
 			}
-
-			return false
 		}
 	}
 
+	if matchAny {
+		return false
+	}
 	return true
 }
 
@@ -1154,18 +1261,31 @@ func insertMatchDecorations(array []int, line string) []int {
 	b, e := 0, 0
 
 	for pos, char := range line {
-
-		if b < numMatches {
-			if pos == beginColorIndexes[b] {
-				array = appendMatchDecorationsBegin(array)
-				b++
-			}
-		}
-
+		// End color goes first because it is for the previous match.
 		if e < numMatches {
 			if pos == endColorIndexes[e] {
 				array = appendMatchDecorationsEnd(array)
 				e++
+
+				// Skip duplicate indexes.
+				for e < numMatches && endColorIndexes[e] == pos {
+					array = appendMatchDecorationsEnd(array)
+					e++
+				}
+			}
+		}
+
+		// Begin color goes next because it is for the next match.
+		if b < numMatches {
+			if pos == beginColorIndexes[b] {
+				array = appendMatchDecorationsBegin(array)
+				b++
+
+				// Skip duplicate indexes.
+				for b < numMatches && beginColorIndexes[b] == pos {
+					array = appendMatchDecorationsBegin(array)
+					b++
+				}
 			}
 		}
 
@@ -1604,7 +1724,7 @@ func trapControlC() {
 }
 
 func cleanUpAndExit(exitCode int) {
-	endColoring()
+	resetColoring()
 	exit(exitCode) // implicit flush - make sure everything goes to output before exiting
 }
 
@@ -1613,7 +1733,7 @@ func cleanUpAndExit(exitCode int) {
 // Go!
 
 // Main driver program for findfile.
-func Main() {
+func main() {
 	trapControlC()
 	loadArguments()
 	validateArguments()

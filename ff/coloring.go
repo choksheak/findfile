@@ -22,8 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"github.com/fatih/color"
@@ -37,13 +36,29 @@ const colorRuneBegin = -1
 const colorRuneEnd = -2
 
 var hiColor = color.New(color.FgHiWhite).Add(color.BgHiBlue)
+var colorNestLevel = 0
 
-func startColoring() {
-	flush()
-	hiColor.Set()
+func pushColoring() {
+	colorNestLevel++
+	if colorNestLevel == 1 {
+		flush()
+		hiColor.Set()
+	}
 }
 
-func endColoring() {
+func popColoring() {
+	if colorNestLevel == 0 {
+		panic("No more coloring to pop")
+	}
+	colorNestLevel--
+	if colorNestLevel == 0 {
+		flush()
+		color.Unset()
+	}
+}
+
+func resetColoring() {
+	colorNestLevel = 0
 	flush()
 	color.Unset()
 }
@@ -54,9 +69,9 @@ func putIntArrayWithColors(array []int) {
 		if char >= 0 {
 			putc(rune(char))
 		} else if char == colorRuneBegin {
-			startColoring()
+			pushColoring()
 		} else if char == colorRuneEnd {
-			endColoring()
+			popColoring()
 		}
 	}
 }

@@ -22,13 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"strconv"
 )
 
 /**************************************************************************/
@@ -75,6 +75,27 @@ func execCommand(command string, args ...string) (string, error) {
 	cmd.Stdout = &out
 	err := cmd.Run()
 	return out.String(), err
+}
+
+func addCommasToInt(i int64) string {
+	s := strconv.FormatInt(i, 10)
+	if len(s) <= 3 {
+		return s
+	}
+	var b bytes.Buffer
+	mod := len(s) % 3
+	for _, char := range s {
+		if mod == 0 {
+			mod = 2
+			if b.Len() > 0 {
+				b.WriteRune(',')
+			}
+		} else {
+			mod--
+		}
+		b.WriteRune(char)
+	}
+	return b.String()
 }
 
 /**************************************************************************/

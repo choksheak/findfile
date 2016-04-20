@@ -22,14 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/*
-config.go
-
-Handle config files used to store options.
-*/
-
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bytes"

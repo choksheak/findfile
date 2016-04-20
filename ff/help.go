@@ -22,8 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bytes"
@@ -54,11 +53,12 @@ func printHelp() {
 		optionDir,
 		optionSearchNamesOnly,
 		optionSearchContentsOnly,
-		optionInclude,
-		optionExclude,
+		optionIncludeFiles,
+		optionExcludeFiles,
 		optionIgnoreCase,
 		optionWholeWord,
 		optionRegex,
+		optionExcludeStrings,
 		optionShowTabs,
 		optionContextLines,
 		optionContextColumns,
@@ -232,7 +232,7 @@ Examples:
      ` + programName + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` world
 
   2. Search for all filenames containing ".txt":
-     ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExclude) + `=* .txt
+     ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExcludeFiles) + `=* .txt
 
   3. Search for all lines containing both "-abc" and "-xyz":
      ` + programName + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` ` + getFirstOptionFlag(optionEndOfOptions) + ` -abc -xyz
@@ -250,8 +250,8 @@ We would love to hear from you! Please email all comments and suggestions for im
 Have fun searching through your files!
 
 - The FindFile Team
-` + contactEmail + `
-` + websiteURL + `
+  ` + contactEmail + `
+  ` + websiteURL + `
 
 (Help for ` + longProgramName + ` version ` + version + `)
 `)

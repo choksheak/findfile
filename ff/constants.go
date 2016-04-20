@@ -22,15 +22,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 /**************************************************************************/
 
 // findfile constants.
 
 const (
-	version               = "0.3.2016-04-18"
+	version               = "0.4.2016-04-19"
 	programName           = "ff"
 	longProgramName       = "findfile"
 	contactEmail          = "findfile.go@gmail.com"

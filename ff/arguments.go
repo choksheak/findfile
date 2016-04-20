@@ -22,15 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/*
-arguments.go
-
-We use a model of setting options as global variables because there are
-many of them any we want to keep the code simple.
-*/
-
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bytes"
@@ -170,14 +162,14 @@ var (
 	optionSearchContentsOnly = newBoolOption(optionCategoryWhat,
 		"search-contents-only", "-c|--search-contents-only",
 		"search file contents only, ignoring dir and file names", false)
-	optionInclude = newStringOption(optionCategoryWhat,
-		"include", "-I|--include=[glob-pattern]",
+	optionIncludeFiles = newStringOption(optionCategoryWhat,
+		"include", "-I|--include-files=[glob-pattern]",
 		"include glob pattern for files", "")
 	optionIncludeDirs = newStringOption(optionCategoryWhat,
 		"include-dirs", "-ID|--include-dirs=[glob-pattern]",
 		"include glob pattern for dirs", "")
-	optionExclude = newStringOption(optionCategoryWhat,
-		"exclude", "-X|--exclude=[glob-pattern]",
+	optionExcludeFiles = newStringOption(optionCategoryWhat,
+		"exclude", "-X|--exclude-files=[glob-pattern]",
 		"exclude glob pattern for files", "")
 	optionExcludeDirs = newStringOption(optionCategoryWhat,
 		"exclude-dirs", "-XD|--exclude-dirs=[glob-pattern]",
@@ -191,8 +183,11 @@ var (
 		"whole-word", "-w|--whole-word",
 		"match whole words only", false)
 	optionRegex = newBoolOption(optionCategoryMatching,
-		"regex", "-x|--regex",
+		"regex", "-r|--regex",
 		"treat search strings as regular expressions", false)
+	optionExcludeStrings = newStringOption(optionCategoryMatching,
+		"exclude", "-EX|--exclude-strings",
+		"exclude lines containing given strings, delimited by ';'", "")
 
 	// Output display.
 	optionMeasureStats = newBoolOption(optionCategoryOutputDisplay,

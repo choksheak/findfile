@@ -1,0 +1,240 @@
+
+[SYNOPSIS]
+
+  ff [option]... <search-string>...
+  
+  findfile is a cross-platform portable, standalone command line utility for
+  searching through files using non-indexed search.
+
+[OPTION RULES]
+
+  1. '-' and '--' can be replaced with '/' in any option (Windows mode).
+
+  2. For options that do not require a value, each time it appears will toggle
+  its value (true/false).
+  
+  3. For options that require a value (uppercase-letter options), the value must
+  be specified using either '=' or ':', without spaces, e.g. "-X=123"
+
+[GENERAL OPTIONS]
+
+  -h --help
+     print short help and exit
+
+  -? --info
+     print full help information
+
+  -vs --version
+     print version and exit
+
+  -l --list-all
+     list all the dir and file names without searching
+
+  -a --show-args
+     print passed-in arguments that are specified after this argument
+
+  -- --end-of-options
+     indicate end of options, so that you can write search strings starting with
+     dash '-' and slash '/'
+
+[WHERE TO SEARCH]
+
+  -D --dir
+     starting dir to search, defaults to the current dir "."
+
+  -M --max-levels=[-1:2147483647]
+     search up to given dir depth, 0 to search starting dir only; default of -1
+     means no limit
+
+[WHAT TO SEARCH]
+
+  -n --search-names-only
+     search dir and file names only, ignoring file contents
+
+  -c --search-contents-only
+     search file contents only, ignoring dir and file names
+
+  -I --include-files=[glob-pattern]
+     include glob pattern for files
+
+  -ID --include-dirs=[glob-pattern]
+     include glob pattern for dirs
+
+  -X --exclude-files=[glob-pattern]
+     exclude glob pattern for files
+
+  -XD --exclude-dirs=[glob-pattern]
+     exclude glob pattern for dirs
+
+  For multiple glob patterns, use ';' as the delimiter, e.g. "*.cfg; *.txt;
+  *.go". Leading and trailing spaces in each sub-expression will be ignored.
+
+  For detailed syntax of glob patterns, please see:
+  https://golang.org/pkg/path/filepath/#Match
+
+[HOW TO MATCH SEARCH STRING]
+
+  -i --ignore-case
+     use case-insensitive matching
+
+  -w --whole-word
+     match whole words only
+
+  -r --regex
+     treat search strings as regular expressions
+
+  -EX --exclude-strings
+     exclude lines containing given strings, delimited by ';'
+
+  For detailed syntax of regex patterns, please see:
+  https://golang.org/pkg/regexp/syntax/
+
+[HOW TO DISPLAY OUTPUT]
+
+  -m --measure-stats
+     measure time taken and number of bytes read
+
+  -nc --no-color
+     turn off coloring for matching strings; coloring only applies for terminal
+     windows
+
+  -b --show-brackets
+     show brackets around the matching substrings
+
+  -t --show-tabs
+     make tabs visible
+
+  -T --tab-spacing=[0:30]
+     number of spaces per tab, defaults to 4
+
+  -bin --search-binary-files
+     include binary files in the search; by default they will be skipped
+
+  -cc --show-control-chars
+     show all control characters as-is; control characters here are defined as
+     ASCII characters 0-8, 11-12, 14-31, 127
+
+  -L --context-lines=[0:2147483647]
+     print number of lines before and after match; default is 0 to show matching
+     line only
+
+  -C --context-columns=[0:2147483647]
+     print number of characters around and including matching substring; default
+     is 200; use 0 to show the entire line
+
+  -abs --absolute-path
+     print absolute file paths
+
+  -v --invert-match
+     print non-matching lines or file/dir names only
+
+  -q --quiet
+     turn off supporting messages
+
+  -0 --format0 --show-lines-only
+     print matching lines only, without any other decoration: "%s%n"
+
+  -1 --format1 --show-filenames-and-lines
+     use one-liner compact format per match: "%p:%l: %s%n"
+
+  -2 --format2 --show-filenames-and-counts
+     print matching filenames with match counts
+
+  -3 --format3 --show-filenames-only
+     print matching filenames only
+
+  -F --format=[format-string]
+     specify output format string; default is "%n%i. %p line %l col %c%n%s%n"
+
+[OUTPUT FILE OPTIONS]
+
+  -wf --write-to-file
+     write output to file
+
+  -O --output-file=[filename]
+     write output to given file name, defaults to "\temp\ff-output.txt in
+     Windows, and "/tmp/ff-output.txt" in other operating systems
+
+  -s --spawn
+     spawn editor program to open output file
+
+  -E --editor=[editor-path]
+     specify editor program to use to open output file
+
+[CONFIG FILE OPTIONS]
+
+  -S --set-config=[options-to-set]
+     save the given options in a config file and exit
+
+  -U --unset-config=[options-to-unset]
+     unset the given options in a config file and exit
+
+  -lc --list-config
+     print the current config file values and exit
+
+[OUTPUT FORMAT STRING]
+
+  %i : result number, 1-indexed
+  %p : file path
+  %l : line number, 1-indexed
+  %c : column number, 1-indexed
+  %s : full line
+  %% : percent sign
+  %n : newline
+
+[SPECIFYING OPTION VALUES]
+
+  For options that require a value, you may specify the value using either '='
+  or ':', without spaces, as follows:
+     -x=value
+     --xyz:value
+     /x:value
+     /xyz=value
+
+  For option values with spaces, use double-quotes to enclose the option value:
+     -x="hello world"
+     "--xyz:hello world"
+
+[ENVIRONMENT VARIABLES]
+
+  FINDFILE_OPTIONS
+     list of options to use, can be overridden from command line
+  EDITOR
+     used as default editor when -E|--editor=[editor-path] is not specified
+
+[CONFIG FILE]
+
+  Stores default command line options in a config file also:
+     Windows - %HOMEDRIVE%%HOMEPATH%\.findfile\config.txt
+     Linux   - $HOME/.findfile/config.txt
+
+[EXAMPLES]
+
+  1. Search for all case-insensitive "World" within files only:
+     ff -i -c world
+
+  2. Search for all filenames containing ".txt":
+     ff -n -X=* .txt
+
+  3. Search for all lines containing both "-abc" and "-xyz":
+     ff -c -- -abc -xyz
+
+  4. Search for exact phrase "hello world" and open result in notepad:
+     ff -s -E=notepad "hello world"
+
+  5. Some possibly useful flags to put in your config file:
+     ff -S="-t -i -wf -E=notepad++ -s"
+
+[FEEDBACK]
+
+We would love to hear from you! Please email all comments and suggestions for
+improvements to findfile.go@gmail.com!
+
+Have fun searching through your files!
+
+- The FindFile Team
+  findfile.go@gmail.com
+  https://github.com/choksheak/findfile
+
+(Help for findfile version 0.3.2016-04-18)
+

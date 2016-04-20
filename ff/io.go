@@ -22,8 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Package findfile contains the implementation of the findfile program.
-package findfile
+package main
 
 import (
 	"bufio"
