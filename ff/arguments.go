@@ -54,6 +54,7 @@ var (
 	optionCategoryWhere   = newOptionCategory("Where to search", "")
 	optionCategoryWhat    = newOptionCategory("What to search",
 		`For multiple glob patterns, use ';' as the delimiter, e.g. "*.cfg; *.txt; *.go". Leading and trailing spaces in each sub-expression will be ignored.
+Note that when you use the '*' and '?' pattern strings from the command line, they may be escaped by the command shell before `+longProgramName+` is invoked. Therefore it is best to always enclose these patterns with double-quotes, e.g. -I="*.txt", or "-I=*.txt".
 For detailed syntax of glob patterns, please see: https://golang.org/pkg/path/filepath/#Match`)
 	optionCategoryMatching = newOptionCategory("How to match search string",
 		`For detailed syntax of regex patterns, please see: https://golang.org/pkg/regexp/syntax/`)

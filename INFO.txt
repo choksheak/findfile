@@ -1,7 +1,14 @@
 
+The MIT License (MIT)
+Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
+(Online: https://github.com/choksheak/findfile/blob/master/LICENSE.txt)
+
 [SYNOPSIS]
 
   ff [option]... <search-string>...
+  ff -h
+  ff some text
+  ff -t -w findme
   
   findfile is a cross-platform portable, standalone command line utility for
   searching through files using non-indexed search.
@@ -14,7 +21,7 @@
   its value (true/false).
   
   3. For options that require a value (uppercase-letter options), the value must
-  be specified using either '=' or ':', without spaces, e.g. "-X=123"
+  be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
 
 [GENERAL OPTIONS]
 
@@ -71,6 +78,11 @@
 
   For multiple glob patterns, use ';' as the delimiter, e.g. "*.cfg; *.txt;
   *.go". Leading and trailing spaces in each sub-expression will be ignored.
+
+  Note that when you use the '*' and '?' pattern strings from the command line,
+  they may be escaped by the command shell before findfile is invoked. Therefore
+  it is best to always enclose these patterns with double-quotes, e.g.
+  -I="*.txt", or "-I=*.txt".
 
   For detailed syntax of glob patterns, please see:
   https://golang.org/pkg/path/filepath/#Match
@@ -236,8 +248,8 @@ improvements to findfile.go@gmail.com!
 Have fun searching through your files!
 
 - The FindFile Team
-  email: findfile.go@gmail.com
-website: https://github.com/choksheak/findfile
+  email:   findfile.go@gmail.com
+  website: https://github.com/choksheak/findfile
 
 (Help for findfile version 0.4.20160420)
 

@@ -122,9 +122,16 @@ func printInfo() {
 
 	// Top section.
 	helpBuffer.WriteString(`
+The MIT License (MIT)
+Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
+(Online: https://github.com/choksheak/findfile/blob/master/LICENSE.txt)
+
 Synopsis:
 
   ` + oneLinerUsage + `
+  ` + programName + ` ` + getFirstOptionFlag(optionHelp) + `
+  ` + programName + ` some text
+  ` + programName + ` ` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionWholeWord) + ` findme
   
   ` + longProgramName + ` is a cross-platform portable, standalone command line utility for searching through files using non-indexed search.
 
@@ -134,7 +141,7 @@ Option rules:
 
   2. For options that do not require a value, each time it appears will toggle its value (true/false).
   
-  3. For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123"
+  3. For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
 `)
 
 	// Options.
@@ -216,8 +223,8 @@ We would love to hear from you! Please email all comments and suggestions for im
 Have fun searching through your files!
 
 - The FindFile Team
-  email: ` + contactEmail + `
-website: ` + websiteURL + `
+  email:   ` + contactEmail + `
+  website: ` + websiteURL + `
 
 (Help for ` + longProgramName + ` version ` + version + `)
 `)
