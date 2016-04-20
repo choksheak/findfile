@@ -198,32 +198,36 @@ func printConfigOptions() {
 
 	exists, _ := pathExists(configFilePath)
 	if !exists {
-		printConfigFilePathOnce()
-		putln("Config file does not exist.")
+		putln("Config file %v does not exist.", configFilePath)
 	} else {
 		// Read options from config file.
 		fileContents := readConfigFile()
 		rawOptionStrings := splitArgumentsString(fileContents, "config file "+configFilePath)
 
 		if len(rawOptionStrings) == 0 {
-			printConfigFilePathOnce()
-			putln("Config file is empty.")
+			putln("Config file %v is empty.", configFilePath)
 		} else {
-			printConfigFilePathOnce()
+			putln("Config file location:")
+			putln("  %v", configFilePath)
+			putBlankLine()
+
 			putln("Options loaded from the config file:")
 			putln("  %v", fileContents)
 			putBlankLine()
 
 			putln("Legend:")
-			for _, optionString := range rawOptionStrings {
+			arrayOfArrays := make([][]string, len(rawOptionStrings))
+			for pos, optionString := range rawOptionStrings {
 				flag, _ := splitOptionFlagAndValue(optionString)
 				option := getOptionByFlag(flag)
 				if option == nil {
-					putln("  %-4v :  Unknown option", optionString)
-					continue
+					arrayOfArrays[pos] = []string{optionString, ":", "Unknown option"}
+				} else {
+					arrayOfArrays[pos] = []string{flag, ":", option.getDefinition().flags}
 				}
-				putln("  %-4v :  %v", flag, option.getDefinition().flags)
 			}
+
+			printNeatColumns(arrayOfArrays, 2, 2)
 		}
 	}
 	putBlankLine()

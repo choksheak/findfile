@@ -19,7 +19,10 @@
 [GENERAL OPTIONS]
 
   -h --help
-     print short help and exit
+     print short help with commonly-used options
+
+  -o --list-options
+     print the list of all options
 
   -? --info
      print full help information
@@ -39,7 +42,7 @@
 
 [WHERE TO SEARCH]
 
-  -D --dir
+  -D --dir=[starting-dir]
      starting dir to search, defaults to the current dir "."
 
   -M --max-levels=[-1:2147483647]
@@ -54,13 +57,13 @@
   -c --search-contents-only
      search file contents only, ignoring dir and file names
 
-  -I --include-files=[glob-pattern]
+  -IF --include-files=[glob-pattern]
      include glob pattern for files
 
   -ID --include-dirs=[glob-pattern]
      include glob pattern for dirs
 
-  -X --exclude-files=[glob-pattern]
+  -XF --exclude-files=[glob-pattern]
      exclude glob pattern for files
 
   -XD --exclude-dirs=[glob-pattern]
@@ -83,7 +86,7 @@
   -r --regex
      treat search strings as regular expressions
 
-  -EX --exclude-strings
+  -EX --exclude-strings=[strings-to-exclude]
      exclude lines containing given strings, delimited by ';'
 
   For detailed syntax of regex patterns, please see:
@@ -214,7 +217,7 @@
      ff -i -c world
 
   2. Search for all filenames containing ".txt":
-     ff -n -X=* .txt
+     ff -n -XF=* .txt
 
   3. Search for all lines containing both "-abc" and "-xyz":
      ff -c -- -abc -xyz
@@ -223,7 +226,7 @@
      ff -s -E=notepad "hello world"
 
   5. Some possibly useful flags to put in your config file:
-     ff -S="-t -i -wf -E=notepad++ -s"
+     ff -S="-t -i -wf -E=notepad++ -s -XD=.git;.svn"
 
 [FEEDBACK]
 
@@ -233,8 +236,8 @@ improvements to findfile.go@gmail.com!
 Have fun searching through your files!
 
 - The FindFile Team
-  findfile.go@gmail.com
-  https://github.com/choksheak/findfile
+  email: findfile.go@gmail.com
+website: https://github.com/choksheak/findfile
 
-(Help for findfile version 0.3.2016-04-18)
+(Help for findfile version 0.4.20160420)
 

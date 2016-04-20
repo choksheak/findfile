@@ -6,5 +6,5 @@ findfile is a handy, cross-platform portable, standalone command line file searc
 findfile is not meant to replace the Linux find and grep commands, or any other comparable commands, because each program excels in their own niche.
 
 - The FindFile Team
-  findfile.go@gmail.com
-  https://github.com/choksheak/findfile
+- email: findfile.go@gmail.com
+- website: https://github.com/choksheak/findfile

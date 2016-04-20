@@ -130,7 +130,10 @@ var (
 	// General.
 	optionHelp = newBoolOption(optionCategoryGeneral,
 		"help", "-h|--help",
-		"print short help and exit", false)
+		"print short help with commonly-used options", false)
+	optionListOptions = newBoolOption(optionCategoryGeneral,
+		"list-options", "-o|--list-options",
+		"print the list of all options", false)
 	optionInfo = newBoolOption(optionCategoryGeneral,
 		"info", "-?|--info",
 		"print full help information", false)
@@ -149,7 +152,7 @@ var (
 
 	// Where.
 	optionDir = newStringOption(optionCategoryWhere,
-		"dir", "-D|--dir",
+		"dir", "-D|--dir=[starting-dir]",
 		"starting dir to search, defaults to the current dir \".\"", ".")
 	optionMaxLevels = newIntOption(optionCategoryWhere,
 		"max-levels", "-M|--max-levels=[-1:"+strconv.Itoa(math.MaxInt32)+"]",
@@ -163,13 +166,13 @@ var (
 		"search-contents-only", "-c|--search-contents-only",
 		"search file contents only, ignoring dir and file names", false)
 	optionIncludeFiles = newStringOption(optionCategoryWhat,
-		"include", "-I|--include-files=[glob-pattern]",
+		"include", "-IF|--include-files=[glob-pattern]",
 		"include glob pattern for files", "")
 	optionIncludeDirs = newStringOption(optionCategoryWhat,
 		"include-dirs", "-ID|--include-dirs=[glob-pattern]",
 		"include glob pattern for dirs", "")
 	optionExcludeFiles = newStringOption(optionCategoryWhat,
-		"exclude", "-X|--exclude-files=[glob-pattern]",
+		"exclude", "-XF|--exclude-files=[glob-pattern]",
 		"exclude glob pattern for files", "")
 	optionExcludeDirs = newStringOption(optionCategoryWhat,
 		"exclude-dirs", "-XD|--exclude-dirs=[glob-pattern]",
@@ -186,7 +189,7 @@ var (
 		"regex", "-r|--regex",
 		"treat search strings as regular expressions", false)
 	optionExcludeStrings = newStringOption(optionCategoryMatching,
-		"exclude", "-EX|--exclude-strings",
+		"exclude", "-EX|--exclude-strings=[strings-to-exclude]",
 		"exclude lines containing given strings, delimited by ';'", "")
 
 	// Output display.
@@ -311,6 +314,9 @@ func newIntOption(category optionCategory, name, flags, description string, defa
 }
 
 func newStringOption(category optionCategory, name, flags, description, defaultValue string) *stringOption {
+	if !strings.Contains(flags, "=") {
+		panic("Missing value name in string option " + flags)
+	}
 	newDefinition := optionDefinition{category, name, flags, description, "string"}
 	newOption := stringOption{definition: newDefinition, defaultValue: defaultValue, value: defaultValue}
 	optionsList = append(optionsList, &newOption)
@@ -447,7 +453,43 @@ func escapeString(s string) string {
 
 func getFirstOptionFlag(option option) string {
 	return strings.Split(option.getDefinition().flags, "|")[0]
+}
 
+func printNeatColumns(arrayOfArrays [][]string, initialIndent, numSpacesBetween int) {
+	// Get max size of all arrays.
+	maxArraySize := 0
+	for _, array := range arrayOfArrays {
+		size := len(array)
+		if size > maxArraySize {
+			maxArraySize = size
+		}
+	}
+
+	// Find max size of each column
+	columnSizes := make([]int, maxArraySize)
+	for _, array := range arrayOfArrays {
+		for col, flag := range array {
+			if len(flag) > columnSizes[col] {
+				columnSizes[col] = len(flag)
+			}
+		}
+	}
+
+	// Print each column.
+	for _, array := range arrayOfArrays {
+		for i := initialIndent; i > 0; i-- {
+			putc(' ')
+		}
+		for col, flag := range array {
+			puts(flag)
+			if col != len(array)-1 {
+				for i := columnSizes[col] - len(flag) + numSpacesBetween; i > 0; i-- {
+					putc(' ')
+				}
+			}
+		}
+		putBlankLine()
+	}
 }
 
 /**************************************************************************/
@@ -457,20 +499,12 @@ func getFirstOptionFlag(option option) string {
 var configFileDir = filepath.Join(userHomeDir, configSubDir)
 var configFilePath = filepath.Join(userHomeDir, configSubDir, configFileName)
 
-var isConfigFilePathPrinted = false
 var endOfOptionsReached = false
 var optionArguments = make([]string, 0, 10)
 var nonOptionArguments = make([]string, 0, 10)
 
 func hasOptionPrefix(optionString string) bool {
 	return (optionString != "") && ((optionString[0] == '/') || (optionString[0] == '-'))
-}
-
-func printConfigFilePathOnce() {
-	if !isConfigFilePathPrinted {
-		isConfigFilePathPrinted = true
-		putln("Config file location: %v", configFilePath)
-	}
 }
 
 func appendNonOptionArgument(argumentString, sourceName string) {
@@ -569,9 +603,6 @@ func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool
 	}
 
 	if optionShowArgs.value {
-		if strings.HasPrefix(sourceName, "config") {
-			printConfigFilePathOnce()
-		}
 		putln("Read option from %v: %v = %v (%v)", sourceName, flag, value, flags)
 	}
 
@@ -651,7 +682,7 @@ func loadArgumentsFromConfigFile() {
 	}
 
 	// Read arguments.
-	sourceName := "config file"
+	sourceName := "config file " + configFilePath
 	loadArgumentsFromConfigString(fileContents, sourceName)
 }
 
@@ -702,7 +733,7 @@ func checkForDisallowedConfigOptions(arguments []string, sourceName string) {
 		flag, _ := splitOptionFlagAndValue(argument)
 		option := getOptionByFlag(flag)
 		if disallowedConfigOptions[option.getDefinition().name] {
-			putln("Option %v is not allowed in the %v.", option.getDefinition().flags, sourceName)
+			putln("Please remove option %v which is not allowed in the %v.", option.getDefinition().flags, sourceName)
 			exit(1)
 		}
 	}
@@ -713,7 +744,7 @@ func checkForUnrecognizedOptions(arguments []string, sourceName string) {
 		flag, _ := splitOptionFlagAndValue(argument)
 		option := getOptionByFlag(flag)
 		if option == nil {
-			putln("Unknown option %v given in the %v.", flag, sourceName)
+			putln("Please remove unknown option %v given in the %v.", flag, sourceName)
 			exit(1)
 		}
 	}

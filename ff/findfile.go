@@ -123,12 +123,16 @@ var currentFileScanner *bufio.Scanner
 
 func performArgumentActions() {
 	needExit := false
+	if optionInfo.value {
+		printInfo()
+		needExit = true
+	}
 	if optionHelp.value {
 		printHelp()
 		needExit = true
 	}
-	if optionInfo.value {
-		printInfo()
+	if optionListOptions.value {
+		printListOfOptions()
 		needExit = true
 	}
 	if optionVersion.value {

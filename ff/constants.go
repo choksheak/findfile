@@ -29,7 +29,7 @@ package main
 // findfile constants.
 
 const (
-	version               = "0.4.2016-04-19"
+	version               = "0.4.20160420"
 	programName           = "ff"
 	longProgramName       = "findfile"
 	contactEmail          = "findfile.go@gmail.com"

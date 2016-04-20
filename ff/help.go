@@ -48,7 +48,7 @@ func printDefaultMessage() {
 }
 
 func printHelp() {
-	commonlyUsedOptions := []option{
+	commonlyUsedOptions := []interface{}{
 		optionHelp,
 		optionDir,
 		optionSearchNamesOnly,
@@ -71,79 +71,45 @@ func printHelp() {
 	putBlankLine()
 	putln("USAGE: %v", oneLinerUsage)
 	putBlankLine()
+
 	putln("Commonly used options: ('-' and '--' can be replaced by '/')")
 	putBlankLine()
 
-	commonlyUsedFlags := make([]string, len(commonlyUsedOptions))
-	for pos, option := range commonlyUsedOptions {
-		commonlyUsedFlags[pos] = option.getDefinition().flags
-	}
-
+	commonlyUsedFlags := optionsToFlagsArray(commonlyUsedOptions)
 	printNeatColumns(commonlyUsedFlags, 3, 2)
-
 	putBlankLine()
+
+	putln("Use \"%v %v\" to see the list of all options.", programName, optionListOptions.getDefinition().flags)
 	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.getDefinition().flags)
 	putBlankLine()
 }
 
-func printNeatColumns(flagsArray []string, initialIndent, numSpacesBetween int) {
-	// Break up into array of arrays
-	arrayOfArrays := make([][]string, len(flagsArray))
-	maxArraySize := 0
-	for i, flags := range flagsArray {
-		flags := strings.Replace(flags, "=", "|=", -1)
-		arrayOfArrays[i] = strings.Split(flags, "|")
-		size := len(arrayOfArrays[i])
-		if size > maxArraySize {
-			maxArraySize = size
-		}
-	}
+func printListOfOptions() {
+	putBlankLine()
+	putln("USAGE: %v", oneLinerUsage)
+	putBlankLine()
 
-	// Find max size of each column
-	columnSizes := make([]int, maxArraySize)
-	for _, array := range arrayOfArrays {
-		for col, flag := range array {
-			if len(flag) > columnSizes[col] {
-				columnSizes[col] = len(flag)
-			}
-		}
-	}
+	putln("List of all options: ('-' and '--' can be replaced by '/')")
+	putBlankLine()
 
-	// Print each column.
-	for _, array := range arrayOfArrays {
-		for i := initialIndent; i > 0; i-- {
-			putc(' ')
-		}
-		for col, flag := range array {
-			puts(flag)
-			if col != len(array)-1 {
-				for i := columnSizes[col] - len(flag) + numSpacesBetween; i > 0; i-- {
-					putc(' ')
-				}
-			}
-		}
-		putBlankLine()
-	}
+	allFlags := optionsToFlagsArray(optionsList)
+	printNeatColumns(allFlags, 3, 2)
+	putBlankLine()
+
+	putln("Use \"%v %v\" to see a list of commonly-used options only.", programName, optionHelp.getDefinition().flags)
+	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.getDefinition().flags)
+	putBlankLine()
 }
 
-func lineWrap(s, lineSeparator string, maxColumn int) string {
-	var buffer bytes.Buffer
-	column := 1
-	words := strings.Split(s, " ")
-	for _, word := range words {
-		if column+len(word) > maxColumn {
-			buffer.WriteString(lineSeparator)
-			column = len(word)
-		} else if column > 1 {
-			buffer.WriteRune(' ')
-			column += 1 + len(word)
-		} else {
-			column += len(word)
-		}
-		buffer.WriteString(word)
+func optionsToFlagsArray(options []interface{}) [][]string {
+	flagsArray := make([][]string, len(options))
+	for pos, opt := range options {
+		option := asOption(opt)
+		flags := option.getDefinition().flags
+		flags = strings.Replace(flags, "=", "|=", -1)
+		flagsArray[pos] = strings.Split(flags, "|")
 	}
-	s = buffer.String()
-	return s
+	return flagsArray
 }
 
 /**************************************************************************/
@@ -241,7 +207,7 @@ Examples:
      ` + programName + ` ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad "hello world"
 
   5. Some possibly useful flags to put in your config file:
-     ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + `"
+     ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionExcludeDirs) + `=.git;.svn"
 
 Feedback:
 
@@ -250,8 +216,8 @@ We would love to hear from you! Please email all comments and suggestions for im
 Have fun searching through your files!
 
 - The FindFile Team
-  ` + contactEmail + `
-  ` + websiteURL + `
+  email: ` + contactEmail + `
+website: ` + websiteURL + `
 
 (Help for ` + longProgramName + ` version ` + version + `)
 `)
@@ -289,7 +255,7 @@ Have fun searching through your files!
 	})
 
 	// Use uppercase for header text.
-	regex = regexp.MustCompile(`(?m)^(\S.+):(.*)$`)
+	regex = regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
 	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
 		// Add coloring.
@@ -327,6 +293,26 @@ Have fun searching through your files!
 
 	putIntArrayWithColors(helpIntArray)
 	putBlankLine()
+}
+
+func lineWrap(s, lineSeparator string, maxColumn int) string {
+	var buffer bytes.Buffer
+	column := 1
+	words := strings.Split(s, " ")
+	for _, word := range words {
+		if column+len(word) > maxColumn {
+			buffer.WriteString(lineSeparator)
+			column = len(word)
+		} else if column > 1 {
+			buffer.WriteRune(' ')
+			column += 1 + len(word)
+		} else {
+			column += len(word)
+		}
+		buffer.WriteString(word)
+	}
+	s = buffer.String()
+	return s
 }
 
 /**************************************************************************/
