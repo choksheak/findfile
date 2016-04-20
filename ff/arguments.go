@@ -275,9 +275,12 @@ var (
 // These options cannot be specified within config data.
 var disallowedConfigOptions = map[string]bool{
 	optionHelp.getDefinition().name:        true,
+	optionListOptions.getDefinition().name: true,
 	optionInfo.getDefinition().name:        true,
+	optionVersion.getDefinition().name:     true,
 	optionSetConfig.getDefinition().name:   true,
 	optionUnsetConfig.getDefinition().name: true,
+	optionListConfig.getDefinition().name:  true,
 }
 
 // List of all options.
