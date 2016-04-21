@@ -31,7 +31,7 @@ package main
 const (
 	version               = "0.4.20160420"
 	programName           = "ff"
-	longProgramName       = "findfile"
+	longProgramName       = "FindFile"
 	contactEmail          = "findfile.go@gmail.com"
 	websiteURL            = "https://github.com/choksheak/findfile"
 	defaultOutputFileName = "ff-output.txt"

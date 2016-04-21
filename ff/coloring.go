@@ -34,15 +34,18 @@ import (
 
 const colorRuneBegin = -1
 const colorRuneEnd = -2
+const color2RuneBegin = -3
+const colorRuneMinValue = -3
 
 var hiColor = color.New(color.FgHiWhite).Add(color.BgHiBlue)
+var hiColor2 = color.New(color.FgHiWhite)
 var colorNestLevel = 0
 
-func pushColoring() {
+func pushColoring(color *color.Color) {
 	colorNestLevel++
 	if colorNestLevel == 1 {
 		flush()
-		hiColor.Set()
+		color.Set()
 	}
 }
 
@@ -63,15 +66,26 @@ func resetColoring() {
 	color.Unset()
 }
 
+func applyColoring(char int) {
+	switch char {
+	case colorRuneBegin:
+		pushColoring(hiColor)
+	case colorRuneEnd:
+		popColoring()
+	case color2RuneBegin:
+		pushColoring(hiColor2)
+	default:
+		panic("Bad coloring rune: " + string(int(char)))
+	}
+}
+
 func putIntArrayWithColors(array []int) {
 	for _, char := range array {
 		// Check for color escape codes.
 		if char >= 0 {
 			putc(rune(char))
-		} else if char == colorRuneBegin {
-			pushColoring()
-		} else if char == colorRuneEnd {
-			popColoring()
+		} else {
+			applyColoring(char)
 		}
 	}
 }

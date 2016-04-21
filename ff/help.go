@@ -117,7 +117,6 @@ func optionsToFlagsArray(options []interface{}) [][]string {
 // Print long help.
 
 func printInfo() {
-	maxColumn := 80
 	var helpBuffer bytes.Buffer
 
 	// Top section.
@@ -128,26 +127,33 @@ Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
 
 Synopsis:
 
-  ` + oneLinerUsage + `
-  ` + programName + ` ` + getFirstOptionFlag(optionHelp) + `
-  ` + programName + ` some text
-  ` + programName + ` ` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionWholeWord) + ` findme
-  
-  ` + longProgramName + ` is a cross-platform portable, standalone command line utility for searching through files using non-indexed search.
+ ` + oneLinerUsage + `
+ ` + programName + ` ` + getFirstOptionFlag(optionHelp) + `
+ ` + programName + ` some text
+ ` + programName + ` ` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionWholeWord) + ` findme
+
+ ` + longProgramName + ` is a cross-platform portable, standalone command line utility for searching through files using non-indexed search.
 
 Option rules:
 
-  1. '-' and '--' can be replaced with '/' in any option (Windows mode).
+ 1. Alternate option specifiers
+  '-' and '--' can be replaced by '/' in any option (Windows mode).
 
-  2. For options that do not require a value, each time it appears will toggle its value (true/false).
-  
-  3. For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
+ 2. Toggling boolean options
+  For options that do not require a value, each time it appears will toggle its value (true/false).
+
+ 3. Specifying option values
+  For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
+
+ 4. Spaces in option values
+  For option values with spaces, use double-quotes to enclose the option value, e.g. -X="hello world", "--xyz:hello world"
 `)
 
 	// Options.
 	for _, optionCategory := range optionCategoriesList {
 		helpBuffer.WriteString(`
-` + optionCategory.name + ":\n")
+` + optionCategory.name + `:
+`)
 
 		for _, opt := range optionsList {
 			option := asOption(opt)
@@ -157,118 +163,104 @@ Option rules:
 				continue
 			}
 
-			helpBuffer.WriteString("  " + def.flags + ` : ` + def.description + "\n")
+			flags := strings.Replace(def.flags, "|", " ", -1)
+			helpBuffer.WriteString("\n " + string(rune(-color2RuneBegin)) + flags +
+				string(rune(-colorRuneEnd)) + "\n  " + def.description + "\n")
 		}
 
 		if optionCategory.additionalInfo != "" {
 			lines := strings.Split(optionCategory.additionalInfo, "\n")
 			for _, line := range lines {
-				helpBuffer.WriteString("\n  " + line + "\n")
+				helpBuffer.WriteString("\n " + line + "\n")
 			}
 		}
 	}
 
 	helpBuffer.WriteString(`
 Output format string:
-  %i : result number, 1-indexed
-  %p : file path
-  %l : line number, 1-indexed
-  %c : column number, 1-indexed
-  %s : full line
-  %% : percent sign
-  %n : newline
 
-Specifying option values:
-  For options that require a value, you may specify the value using either '=' or ':', without spaces, as follows:
-     -x=value
-     --xyz:value
-     /x:value
-     /xyz=value
-
-  For option values with spaces, use double-quotes to enclose the option value:
-     -x="hello world"
-     "--xyz:hello world"
+ %i :  result number, 1-indexed
+ %p :  file path
+ %l :  line number, 1-indexed
+ %c :  column number, 1-indexed
+ %s :  full line
+ %% :  percent sign
+ %n :  newline
 
 Environment variables:
-  ` + configEnvVar + `
-     list of options to use, can be overridden from command line
-  ` + editorEnvVar + `
-     used as default editor when ` + optionEditor.getDefinition().flags + ` is not specified
+
+ ` + configEnvVar + `
+  list of options to use, can be overridden from command line
+
+ ` + editorEnvVar + `
+  used as default editor when ` + optionEditor.getDefinition().flags + ` is not specified
 
 Config file:
-  Stores default command line options in a config file also:
-     Windows - %HOMEDRIVE%%HOMEPATH%\` + configSubDir + `\` + configFileName + `
-     Linux   - $HOME/` + configSubDir + `/` + configFileName + `
+
+ Stores default command line options in a config file also:
+
+ WINDOWS
+  %HOMEDRIVE%%HOMEPATH%\` + configSubDir + `\` + configFileName + `
+
+ NON-WINDOWS
+  $HOME/` + configSubDir + `/` + configFileName + `
 
 Examples:
-  1. Search for all case-insensitive "World" within files only:
-     ` + programName + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` world
 
-  2. Search for all filenames containing ".txt":
-     ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExcludeFiles) + `=* .txt
+ 1. Search for all case-insensitive "World" within files only:
+  ` + programName + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` world
 
-  3. Search for all lines containing both "-abc" and "-xyz":
-     ` + programName + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` ` + getFirstOptionFlag(optionEndOfOptions) + ` -abc -xyz
+ 2. Search for all filenames containing ".txt":
+  ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExcludeFiles) + `=* .txt
 
-  4. Search for exact phrase "hello world" and open result in notepad:
-     ` + programName + ` ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad "hello world"
+ 3. Search for all lines containing both "-abc" and "-xyz":
+  ` + programName + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` ` + getFirstOptionFlag(optionEndOfOptions) + ` -abc -xyz
 
-  5. Some possibly useful flags to put in your config file:
-     ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionExcludeDirs) + `=.git;.svn"
+ 4. Search for exact phrase "hello world" and open result in notepad:
+  ` + programName + ` ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad "hello world"
+
+ 5. Some possibly useful flags to put in your config file:
+  ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionExcludeDirs) + `=.git;.svn"
 
 Feedback:
 
-We would love to hear from you! Please email all comments and suggestions for improvements to ` + contactEmail + `!
+ We would love to hear from you! Please email all comments and suggestions for improvements to ` + contactEmail + `!
 
-Have fun searching through your files!
+ Have fun searching through your files!
 
 - The FindFile Team
-  email:   ` + contactEmail + `
-  website: ` + websiteURL + `
+
+email:   ` + contactEmail + `
+website: ` + websiteURL + `
 
 (Help for ` + longProgramName + ` version ` + version + `)
 `)
 
 	helpText := helpBuffer.String()
 
+	// Configure as needed.
+	maxColumn := 80
+	indentSize := 4
+
 	// Make sure we work with the correct newline.
 	helpText = strings.Replace(helpText, "\r\n", "\n", -1)
 
-	// Transform option lines to make them more readable.
-	regex := regexp.MustCompile(`(?m)^( +)(-\S+) : (\S.+)$`)
-	indent := "\n     "
-	indentSize := len(indent) - 1
-	thisMaxColumn := maxColumn - indentSize
-	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-		parts := regex.FindStringSubmatch(s)
-		spaces, flags, text := parts[1], parts[2], parts[3]
-		flags = strings.Replace(flags, "|", " ", -1)
-
-		// Special treatment for very short flags (i.e. "--").
-		if len(flags) < indentSize {
-			return "\n" + spaces + flags + indent[len(spaces)+len(flags)+1:] +
-				lineWrap(text, indent, thisMaxColumn)
+	// Transform indents.
+	indentSpacesArray := make([]string, 3)
+	var buffer bytes.Buffer
+	for i := 1; i < len(indentSpacesArray); i++ {
+		for j := 0; j < indentSize; j++ {
+			buffer.WriteRune(' ')
 		}
+		indentSpacesArray[i] = buffer.String()
+	}
 
-		return "\n" + spaces + flags + indent + text
-	})
-
-	// Add blank line after header text ending with colon if needed.
-	regex = regexp.MustCompile(`(?m)^(\S.+:)(\n *\S)`)
+	regex := regexp.MustCompile(`(?m)^( +)(\S.+)$`)
 	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		header, text := parts[1], parts[2]
-		return header + "\n" + text
-	})
-
-	// Use uppercase for header text.
-	regex = regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
-	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-		parts := regex.FindStringSubmatch(s)
-		// Add coloring.
-		beginHeader := selectString(isTerminal, "\x01", "[")
-		endHeader := selectString(isTerminal, "\x02", "]")
-		return beginHeader + strings.ToUpper(parts[1]) + endHeader + parts[2]
+		spaces, text := parts[1], parts[2]
+		indentSpaces := indentSpacesArray[len(spaces)]
+		return indentSpaces + text
 	})
 
 	// Wrap any long lines.
@@ -283,6 +275,58 @@ Have fun searching through your files!
 		return spaces + lineWrap(text, "\n"+spaces, thisMaxColumn)
 	})
 
+	// Transform section header text.
+	regex = regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
+	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		// Add coloring.
+		beginHeader := selectString(isTerminal, string(rune(-colorRuneBegin)), "[")
+		endHeader := selectString(isTerminal, string(rune(-colorRuneEnd)), "]")
+		return beginHeader + strings.ToUpper(parts[1]) + endHeader + parts[2]
+	})
+
+	if isTerminal {
+		// Color all numberings.
+		regex = regexp.MustCompile(`(?m)^(\s+)(\d+\.)( .+)$`)
+		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+			parts := regex.FindStringSubmatch(s)
+			spaces, numbering, rest := parts[1], parts[2], parts[3]
+			return spaces + string(rune(-color2RuneBegin)) + numbering + string(rune(-colorRuneEnd)) + rest
+		})
+
+		// Color all output formats.
+		regex = regexp.MustCompile(`(?m)^(\s+)(%\S)(\s+:.+)$`)
+		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+			parts := regex.FindStringSubmatch(s)
+			spaces, format, rest := parts[1], parts[2], parts[3]
+			return spaces + string(rune(-color2RuneBegin)) + format + string(rune(-colorRuneEnd)) + rest
+		})
+
+		// Color all sample commands.
+		regex = regexp.MustCompile(`(?m)^(\s+)(` + programName + ` .+)$`)
+		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+			parts := regex.FindStringSubmatch(s)
+			spaces, rest := parts[1], parts[2]
+			return spaces + string(rune(-color2RuneBegin)) + rest + string(rune(-colorRuneEnd))
+		})
+
+		// Color all small headers.
+		regex = regexp.MustCompile(`(?m)^(\S.+: )(.*)$`)
+		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+			parts := regex.FindStringSubmatch(s)
+			header, rest := parts[1], parts[2]
+			return header + string(rune(-color2RuneBegin)) + rest + string(rune(-colorRuneEnd))
+		})
+
+		// Color all uppercase words.
+		regex = regexp.MustCompile(`(?m)^(\s+)([A-Z].+[A-Z])$`)
+		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+			parts := regex.FindStringSubmatch(s)
+			space, word := parts[1], parts[2]
+			return space + string(rune(-color2RuneBegin)) + word + string(rune(-colorRuneEnd))
+		})
+	}
+
 	// Convert to windows line-endings if needed.
 	if osNewLine != "\n" {
 		helpText = strings.Replace(helpText, "\n", osNewLine, -1)
@@ -291,10 +335,8 @@ Have fun searching through your files!
 	// Replace colors with proper codes.
 	helpIntArray := stringToIntArray(helpText)
 	for pos, char := range helpIntArray {
-		if char == 1 {
-			helpIntArray[pos] = colorRuneBegin
-		} else if char == 2 {
-			helpIntArray[pos] = colorRuneEnd
+		if char <= -colorRuneMinValue {
+			helpIntArray[pos] = -char
 		}
 	}
 
