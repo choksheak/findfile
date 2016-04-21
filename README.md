@@ -36,6 +36,18 @@ If you need the software for a different OS/Architecture, please feel free to bu
 
 - [findfile source tree -- master.zip] (https://github.com/choksheak/findfile/archive/master.zip)
 
+### How to use findfile
+
+In the simplest sense, using findfile is as simple as running the `ff` command with the strings you want to find given as arguments. For example, let's say you are currently in a command prompt at `C:\Temp`. You want to search for the string `hello` that appears in any file under `C:\Temp`. So all you need is to run:
+
+```
+ff hello
+```
+
+That's the simplest and most common way to use findfile. There are many command-line options that you can use to control how the search operates. Please see the [INFO.txt] (https://github.com/choksheak/findfile/blob/master/INFO.txt) file for all the details:
+
+- [Detailed help text -- INFO.txt] (https://github.com/choksheak/findfile/blob/master/INFO.txt)
+
 ### Why is it written in the Go language?
 
 I developed the first, simple version of findfile in Python. But then, it soon became clear that performance was an issue. The performance comes down to mainly two factors: (1) disk I/O, and (2) strings manipulation. Maybe I did something wrong in Python but it was not as fast as I hoped. I know Python but it is not my primary language. So I wanted to solve the performance problem once and for all, which basically means that I need to choose a natively-compiled language. It is not that Java or C# could not deliver on this performance, but that VM languages require users to install a huge support runtime framework before users can even run the program. Therefore I did not want to impose such kind of constraint on the end-user. I am also happy to say that findfile does not have any dependency on Python, or any other software that you can think of, which might not be already installed on your machine.
