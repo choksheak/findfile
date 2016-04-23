@@ -16,7 +16,7 @@ FindFile is designed to be extremely easy to install and use. Follow these steps
 3. Put the executable file in your PATH, or add its location to your PATH environment variable.
 4. Open a terminal / command prompt / powershell prompt.
 5. Run `ff -h` or `ff --help`.
-6. Run `ff -?` or `ff --info` (or view it [online] (https://github.com/choksheak/findfile/blob/master/INFO.txt)). Use `ff -? | less` if you have `less` on your machine (Linux, or GnuWin32).
+6. Run `ff -?` or `ff --info` (or view it [online] (https://github.com/choksheak/findfile/blob/master/INFO.txt)). Use `ff -? | less` if you have `less` on your machine (Linux, Mac, or [Less for Windows] (http://gnuwin32.sourceforge.net/packages/less.htm)).
 7. Run `ff hello world` to search for the strings `hello` and `world` from your current directory.
 
 ### Download Latest Release
