@@ -1,7 +1,7 @@
 FindFile for Windows, Linux, and Mac
 ====================================
 
-FindFile is a handy, cross-platform portable, standalone command line file searching utility using non-indexed search only. It is similar to a combination of the find and grep commands in Linux. This is needed because both find and grep are not specifically designed for searching files.
+FindFile is a handy, cross-platform portable, standalone command line file searching utility using non-indexed search only. It works the same way across Windows, Linux, and Mac, and any other platform or operating system supported by the Go language. FindFile is similar to a combination of the find and grep commands in Linux. This is needed because both find and grep are not specifically designed for searching through files.
 
 FindFile is not meant to replace the Linux find and grep commands, or any other comparable commands, because each program excels in their own niche.
 
