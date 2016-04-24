@@ -38,7 +38,7 @@ const color2RuneBegin = -3
 const colorRuneMinValue = -3
 
 var hiColor = color.New(color.FgHiWhite).Add(color.BgHiBlue).Add(color.Bold)
-var hiColor2 = color.New(color.FgHiWhite).Add(color.Bold)
+var hiColor2 = color.New(color.FgHiWhite).Add(color.BgBlue).Add(color.Bold)
 var colorNestLevel = 0
 
 func pushColoring(color *color.Color) {

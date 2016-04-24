@@ -163,9 +163,16 @@ Option rules:
 				continue
 			}
 
-			flags := strings.Replace(def.flags, "|", " ", -1)
-			helpBuffer.WriteString("\n " + string(rune(-color2RuneBegin)) + flags +
-				string(rune(-colorRuneEnd)) + "\n  " + def.description + "\n")
+			flags := strings.Split(def.flags, "|")
+			helpBuffer.WriteString("\n ")
+			for pos, flag := range flags {
+				if pos > 0 {
+					helpBuffer.WriteRune(' ')
+				}
+				helpBuffer.WriteString(string(rune(-color2RuneBegin)) + flag +
+					string(rune(-colorRuneEnd)))
+			}
+			helpBuffer.WriteString("\n  " + def.description + "\n")
 		}
 
 		if optionCategory.additionalInfo != "" {
@@ -311,7 +318,7 @@ website: ` + websiteURL + `
 		})
 
 		// Color all small headers.
-		regex = regexp.MustCompile(`(?m)^(\S.+: )(.*)$`)
+		regex = regexp.MustCompile(`(?m)^(\S.+:\s+)(\S.*)$`)
 		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
 			parts := regex.FindStringSubmatch(s)
 			header, rest := parts[1], parts[2]
