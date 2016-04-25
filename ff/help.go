@@ -34,7 +34,12 @@ import (
 
 // Constants.
 
-const oneLinerUsage = programName + " [option]... <search-string>..."
+const (
+	oneLinerUsage  = programName + " [option]... <search-string>..."
+	color1String   = string(rune(-color1RuneBegin))
+	color2String   = string(rune(-color2RuneBegin))
+	colorEndString = string(rune(-colorRuneEnd))
+)
 
 /**************************************************************************/
 
@@ -116,11 +121,11 @@ func optionsToFlagsArray(options []interface{}) [][]string {
 
 // Print long help.
 
-func printInfo() {
-	var helpBuffer bytes.Buffer
+func getInfoText() string {
+	var buffer bytes.Buffer
 
 	// Top section.
-	helpBuffer.WriteString(`
+	buffer.WriteString(`
 The MIT License (MIT)
 Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
 (Online: https://github.com/choksheak/findfile/blob/master/LICENSE.txt)
@@ -151,7 +156,7 @@ Option rules:
 
 	// Options.
 	for _, optionCategory := range optionCategoriesList {
-		helpBuffer.WriteString(`
+		buffer.WriteString(`
 ` + optionCategory.name + `:
 `)
 
@@ -164,26 +169,25 @@ Option rules:
 			}
 
 			flags := strings.Split(def.flags, "|")
-			helpBuffer.WriteString("\n ")
+			buffer.WriteString("\n ")
 			for pos, flag := range flags {
 				if pos > 0 {
-					helpBuffer.WriteRune(' ')
+					buffer.WriteRune(' ')
 				}
-				helpBuffer.WriteString(string(rune(-color2RuneBegin)) + flag +
-					string(rune(-colorRuneEnd)))
+				buffer.WriteString(color2String + flag + colorEndString)
 			}
-			helpBuffer.WriteString("\n  " + def.description + "\n")
+			buffer.WriteString("\n  " + def.description + "\n")
 		}
 
 		if optionCategory.additionalInfo != "" {
 			lines := strings.Split(optionCategory.additionalInfo, "\n")
 			for _, line := range lines {
-				helpBuffer.WriteString("\n " + line + "\n")
+				buffer.WriteString("\n " + line + "\n")
 			}
 		}
 	}
 
-	helpBuffer.WriteString(`
+	buffer.WriteString(`
 Output format string:
 
  %i :  result number, 1-indexed
@@ -243,18 +247,18 @@ website: ` + websiteURL + `
 (Help for ` + longProgramName + ` version ` + version + `)
 `)
 
-	helpText := helpBuffer.String()
+	text := buffer.String()
 
 	// Configure as needed.
 	maxColumn := 80
 	indentSize := 4
 
 	// Make sure we work with the correct newline.
-	helpText = strings.Replace(helpText, "\r\n", "\n", -1)
+	text = strings.Replace(text, "\r\n", "\n", -1)
 
 	// Transform indents.
 	indentSpacesArray := make([]string, 3)
-	var buffer bytes.Buffer
+	buffer.Reset()
 	for i := 1; i < len(indentSpacesArray); i++ {
 		for j := 0; j < indentSize; j++ {
 			buffer.WriteRune(' ')
@@ -263,7 +267,7 @@ website: ` + websiteURL + `
 	}
 
 	regex := regexp.MustCompile(`(?m)^( +)(\S.+)$`)
-	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+	text = regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
 		spaces, text := parts[1], parts[2]
 		indentSpaces := indentSpacesArray[len(spaces)]
@@ -272,7 +276,7 @@ website: ` + websiteURL + `
 
 	// Wrap any long lines.
 	regex = regexp.MustCompile(`(?m)^( *)(\S.+)$`)
-	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+	text = regex.ReplaceAllStringFunc(text, func(s string) string {
 		if len(s) <= maxColumn {
 			return s
 		}
@@ -282,65 +286,107 @@ website: ` + websiteURL + `
 		return spaces + lineWrap(text, "\n"+spaces, thisMaxColumn)
 	})
 
-	// Transform section header text.
-	regex = regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
-	helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
+	return text
+}
+
+func transformSectionHeader(text string, transform func(sectionHeader string) string) string {
+	regex := regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		// Add coloring.
-		beginHeader := selectString(isTerminal, string(rune(-colorRuneBegin)), "[")
-		endHeader := selectString(isTerminal, string(rune(-colorRuneEnd)), "]")
-		return beginHeader + strings.ToUpper(parts[1]) + endHeader + parts[2]
+		sectionHeader, rest := parts[1], parts[2]
+		return transform(sectionHeader) + rest
+	})
+}
+
+func transformNumberings(text string, transform func(indentSpaces, numbering, text string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\s+)(\d+\.)( .+)$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		indentSpaces, numbering, rest := parts[1], parts[2], parts[3]
+		return transform(indentSpaces, numbering, rest)
+	})
+}
+
+func transformOutputFormats(text string, transform func(indentSpaces, format, description string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\s+)(%\S)(\s+:.+)$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		indentSpaces, format, description := parts[1], parts[2], parts[3]
+		return transform(indentSpaces, format, description)
+	})
+}
+
+func transformSampleCommands(text string, transform func(indentSpaces, command string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\s+)(` + programName + ` .+)$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		indentSpaces, command := parts[1], parts[2]
+		return transform(indentSpaces, command)
+	})
+}
+
+func transformSmallHeaders(text string, transform func(header, text string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\S.+:\s+)(\S.*)$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		header, text := parts[1], parts[2]
+		return transform(header, text)
+	})
+}
+
+func transformUppercaseWords(text string, transform func(indentSpaces, word string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\s+)([A-Z].+[A-Z])$`)
+	return regex.ReplaceAllStringFunc(text, func(s string) string {
+		parts := regex.FindStringSubmatch(s)
+		indentSpaces, word := parts[1], parts[2]
+		return transform(indentSpaces, word)
+	})
+}
+
+func printInfo() {
+	text := getInfoText()
+
+	// Transform section header text.
+	text = transformSectionHeader(text, func(sectionHeader string) string {
+		beginHeader := selectString(isTerminal, color1String, "[")
+		endHeader := selectString(isTerminal, colorEndString, "]")
+		return beginHeader + strings.ToUpper(sectionHeader) + endHeader
 	})
 
 	if isTerminal {
 		// Color all numberings.
-		regex = regexp.MustCompile(`(?m)^(\s+)(\d+\.)( .+)$`)
-		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-			parts := regex.FindStringSubmatch(s)
-			spaces, numbering, rest := parts[1], parts[2], parts[3]
-			return spaces + string(rune(-color2RuneBegin)) + numbering + string(rune(-colorRuneEnd)) + rest
+		text = transformNumberings(text, func(indentSpaces, numbering, text string) string {
+			return indentSpaces + color2String + numbering + colorEndString + text
 		})
 
 		// Color all output formats.
-		regex = regexp.MustCompile(`(?m)^(\s+)(%\S)(\s+:.+)$`)
-		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-			parts := regex.FindStringSubmatch(s)
-			spaces, format, rest := parts[1], parts[2], parts[3]
-			return spaces + string(rune(-color2RuneBegin)) + format + string(rune(-colorRuneEnd)) + rest
+		text = transformOutputFormats(text, func(indentSpaces, format, description string) string {
+			return indentSpaces + color2String + format + colorEndString + description
 		})
 
 		// Color all sample commands.
-		regex = regexp.MustCompile(`(?m)^(\s+)(` + programName + ` .+)$`)
-		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-			parts := regex.FindStringSubmatch(s)
-			spaces, rest := parts[1], parts[2]
-			return spaces + string(rune(-color2RuneBegin)) + rest + string(rune(-colorRuneEnd))
+		text = transformSampleCommands(text, func(indentSpaces, command string) string {
+			return indentSpaces + color2String + command + colorEndString
 		})
 
 		// Color all small headers.
-		regex = regexp.MustCompile(`(?m)^(\S.+:\s+)(\S.*)$`)
-		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-			parts := regex.FindStringSubmatch(s)
-			header, rest := parts[1], parts[2]
-			return header + string(rune(-color2RuneBegin)) + rest + string(rune(-colorRuneEnd))
+		text = transformSmallHeaders(text, func(header, text string) string {
+			return header + color2String + text + colorEndString
 		})
 
 		// Color all uppercase words.
-		regex = regexp.MustCompile(`(?m)^(\s+)([A-Z].+[A-Z])$`)
-		helpText = regex.ReplaceAllStringFunc(helpText, func(s string) string {
-			parts := regex.FindStringSubmatch(s)
-			space, word := parts[1], parts[2]
-			return space + string(rune(-color2RuneBegin)) + word + string(rune(-colorRuneEnd))
+		text = transformUppercaseWords(text, func(indentSpaces, word string) string {
+			return indentSpaces + color2String + word + colorEndString
 		})
 	}
 
 	// Convert to windows line-endings if needed.
 	if osNewLine != "\n" {
-		helpText = strings.Replace(helpText, "\n", osNewLine, -1)
+		text = strings.Replace(text, "\n", osNewLine, -1)
 	}
 
 	// Replace colors with proper codes.
-	helpIntArray := stringToIntArray(helpText)
+	helpIntArray := stringToIntArray(text)
 	for pos, char := range helpIntArray {
 		if char <= -colorRuneMinValue {
 			helpIntArray[pos] = -char

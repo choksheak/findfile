@@ -30,16 +30,28 @@ import (
 
 /**************************************************************************/
 
-// Add colors.
+// Constants.
 
-const colorRuneBegin = -1
-const colorRuneEnd = -2
-const color2RuneBegin = -3
-const colorRuneMinValue = -3
+const (
+	color1RuneBegin   = -1
+	color2RuneBegin   = -2
+	colorRuneEnd      = -3
+	colorRuneMinValue = -3
+)
 
-var hiColor = color.New(color.FgHiWhite).Add(color.BgHiBlue).Add(color.Bold)
-var hiColor2 = color.New(color.FgHiWhite).Add(color.BgBlue).Add(color.Bold)
-var colorNestLevel = 0
+/**************************************************************************/
+
+// Variables.
+
+var (
+	hiColor1       = color.New(color.FgHiWhite).Add(color.BgHiBlue).Add(color.Bold)
+	hiColor2       = color.New(color.FgHiWhite).Add(color.BgBlue).Add(color.Bold)
+	colorNestLevel = 0
+)
+
+/**************************************************************************/
+
+// Color utilities.
 
 func pushColoring(color *color.Color) {
 	colorNestLevel++
@@ -68,8 +80,8 @@ func resetColoring() {
 
 func applyColoring(char int) {
 	switch char {
-	case colorRuneBegin:
-		pushColoring(hiColor)
+	case color1RuneBegin:
+		pushColoring(hiColor1)
 	case colorRuneEnd:
 		popColoring()
 	case color2RuneBegin:

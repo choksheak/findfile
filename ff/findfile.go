@@ -1314,7 +1314,7 @@ func needMatchDecorations() bool {
 
 func appendMatchDecorationsBegin(array []int) []int {
 	if needColoring() {
-		array = append(array, colorRuneBegin)
+		array = append(array, color1RuneBegin)
 	}
 	if optionShowBrackets.value {
 		array = append(array, '[')
@@ -1427,7 +1427,7 @@ func createLineIndexMapping(line []int) ([]int, int) {
 		if char >= 0 {
 			actualIndexes[pos] = actualLength
 			actualLength++
-		} else if char == colorRuneBegin {
+		} else if char == color1RuneBegin {
 			// Attach color begin to the next character.
 			actualIndexes[pos] = actualLength
 		} else if char == colorRuneEnd {
@@ -1465,7 +1465,7 @@ func calculateContextColumns(line []int) {
 	// Find the first and last actual indexes of the matching subsequence.
 	minActualIndex := -1
 	for i := 0; i < len(line); i++ {
-		if line[i] == colorRuneBegin {
+		if line[i] == color1RuneBegin {
 			minActualIndex = actualIndexes[i]
 			break
 		}
