@@ -16,7 +16,7 @@ FindFile is designed to be extremely easy to install and use. Follow these steps
 3. Put the executable file in your PATH, or add its location to your PATH environment variable.
 4. Open a terminal / command prompt / powershell prompt.
 5. Run `ff -h` or `ff --help`.
-6. Run `ff -?` or `ff --info` (or view it [online] (https://github.com/choksheak/findfile/blob/master/INFO.txt)). Use `ff -? | less` if you have `less` on your machine (Linux, Mac, or [Less for Windows] (http://gnuwin32.sourceforge.net/packages/less.htm)).
+6. Run `ff -?` or `ff --info` (or [view INFO.md online] (https://github.com/choksheak/findfile/blob/master/INFO.md)). Use `ff -? | less` if you have `less` on your machine (Linux, Mac, or [Less for Windows] (http://gnuwin32.sourceforge.net/packages/less.htm)).
 7. Run `ff hello world` to search for the strings `hello` and `world` from your current directory.
 
 ### Download Latest Release
@@ -44,9 +44,9 @@ In the simplest sense, using FindFile is as simple as running the `ff` command w
 ff hello
 ```
 
-That's the simplest and most common way to use FindFile. There are many command-line options that you can use to control how the search operates. Please see the [INFO.txt] (https://github.com/choksheak/findfile/blob/master/INFO.txt) file for all the details:
+That's the simplest and most common way to use FindFile. There are many command-line options that you can use to control how the search operates. Please see the [INFO.md] (https://github.com/choksheak/findfile/blob/master/INFO.md) file for all the details:
 
-- [Detailed help text -- INFO.txt] (https://github.com/choksheak/findfile/blob/master/INFO.txt)
+- [Detailed help text in INFO.md] (https://github.com/choksheak/findfile/blob/master/INFO.md)
 
 ### Why is it written in the Go language?
 
