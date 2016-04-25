@@ -55,6 +55,9 @@ Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
         indicate end of options, so that you can write search strings starting
         with dash '-' and slash '/'
 
+    -md --markdown
+        print help information in markdown format
+
 [WHERE TO SEARCH]
 
     -D --dir=[starting-dir]
@@ -215,12 +218,20 @@ Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
 
 [CONFIG FILE]
 
-    Stores default command line options in a config file also:
+    FindFile may optionally store a config file in your home directory which
+    could contain a list of options to set before it reads from the command line.
+    When the same option value is specified in both the config file and the
+    environment variable, the option value from the environment variable will
+    take higher priority. The option values from the command line will always
+    take the highest priority. Note that boolean options will have their values
+    toggled each time they appear, whether from the config file, the environment
+    variable, or the command line. The config file is stored in the following
+    location:
 
-    WINDOWS
+    WINDOWS 
         %HOMEDRIVE%%HOMEPATH%\.findfile\config.txt
 
-    NON-WINDOWS
+    NON-WINDOWS 
         $HOME/.findfile/config.txt
 
 [EXAMPLES]
