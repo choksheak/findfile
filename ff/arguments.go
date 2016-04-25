@@ -150,6 +150,9 @@ var (
 	optionEndOfOptions = newBoolOption(optionCategoryGeneral,
 		"end-of-options", "--|--end-of-options",
 		"indicate end of options, so that you can write search strings starting with dash '-' and slash '/'", false)
+	optionMarkDown = newBoolOption(optionCategoryGeneral,
+		"markdown", "-md|--markdown",
+		"print help information in markdown format", false)
 
 	// Where.
 	optionDir = newStringOption(optionCategoryWhere,
@@ -278,6 +281,7 @@ var disallowedConfigOptions = map[string]bool{
 	optionHelp.getDefinition().name:        true,
 	optionListOptions.getDefinition().name: true,
 	optionInfo.getDefinition().name:        true,
+	optionMarkDown.getDefinition().name:    true,
 	optionVersion.getDefinition().name:     true,
 	optionSetConfig.getDefinition().name:   true,
 	optionUnsetConfig.getDefinition().name: true,

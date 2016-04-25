@@ -35,10 +35,11 @@ import (
 // Constants.
 
 const (
-	oneLinerUsage  = programName + " [option]... <search-string>..."
-	color1String   = string(rune(-color1RuneBegin))
-	color2String   = string(rune(-color2RuneBegin))
-	colorEndString = string(rune(-colorRuneEnd))
+	oneLinerUsage   = programName + " [option]... <search-string>..."
+	color1String    = string(rune(-color1RuneBegin))
+	color2String    = string(rune(-color2RuneBegin))
+	colorEndString  = string(rune(-colorRuneEnd))
+	singleLineBreak = "  "
 )
 
 /**************************************************************************/
@@ -121,37 +122,68 @@ func optionsToFlagsArray(options []interface{}) [][]string {
 
 // Print long help.
 
-func getInfoText() string {
+func lineWrap(s, lineSeparator string, maxColumn int) string {
 	var buffer bytes.Buffer
+	column := 1
+	words := strings.Split(s, " ")
+	for _, word := range words {
+		if column+len(word) > maxColumn {
+			buffer.WriteString(lineSeparator)
+			column = len(word)
+		} else if column > 1 {
+			buffer.WriteRune(' ')
+			column += 1 + len(word)
+		} else {
+			column += len(word)
+		}
+		buffer.WriteString(word)
+	}
+	s = buffer.String()
+	return s
+}
+
+func getInfoText(markdown bool) string {
+	var buffer bytes.Buffer
+
+	// Init markdown tags.
+	dlOpen, dlClose, dtOpen, dtClose, ddOpen, ddClose := "", "", "", "", "", ""
+	ddIndent, mdLineBreak := " ", ""
+
+	if markdown {
+		dlOpen, dlClose = "\n<dl>", "</dl>\n"
+		dtOpen, dtClose = "<dt>", "</dt>"
+		ddOpen, ddClose = "<dd>", "</dd>"
+		ddIndent, mdLineBreak = "", singleLineBreak
+	}
 
 	// Top section.
 	buffer.WriteString(`
-The MIT License (MIT)
-Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")
+The MIT License (MIT)` + mdLineBreak + `
+Copyright (c) 2016 Lau, Chok Sheak (for software "findfile")` + mdLineBreak + `
 (Online: https://github.com/choksheak/findfile/blob/master/LICENSE.txt)
 
 Synopsis:
 
- ` + oneLinerUsage + `
- ` + programName + ` ` + getFirstOptionFlag(optionHelp) + `
- ` + programName + ` some text
- ` + programName + ` ` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionWholeWord) + ` findme
+ ` + oneLinerUsage + mdLineBreak + `
+ ` + programName + ` ` + getFirstOptionFlag(optionHelp) + mdLineBreak + `
+ ` + programName + ` some text` + mdLineBreak + `
+ ` + programName + ` ` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionWholeWord) + ` findme` + mdLineBreak + `
 
- ` + longProgramName + ` is a cross-platform portable, standalone command line utility for searching through files using non-indexed search.
+` + ddIndent + longProgramName + ` is a cross-platform portable, standalone command line utility for searching through files using non-indexed search.
 
 Option rules:
 
- 1. Alternate option specifiers
-  '-' and '--' can be replaced by '/' in any option (Windows mode).
+` + ddIndent + `1. Alternate option specifiers
+` + ddIndent + ` '-' and '--' can be replaced by '/' in any option (Windows mode).
 
- 2. Toggling boolean options
-  For options that do not require a value, each time it appears will toggle its value (true/false).
+` + ddIndent + `2. Toggling boolean options
+` + ddIndent + ` For options that do not require a value, each time it appears will toggle its value (true/false).
 
- 3. Specifying option values
-  For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
+` + ddIndent + `3. Specifying option values
+` + ddIndent + ` For options that require a value (uppercase-letter options), the value must be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
 
- 4. Spaces in option values
-  For option values with spaces, use double-quotes to enclose the option value, e.g. -X="hello world", "--xyz:hello world"
+` + ddIndent + `4. Spaces in option values
+` + ddIndent + ` For option values with spaces, use double-quotes to enclose the option value, e.g. -X="hello world", "--xyz:hello world"
 `)
 
 	// Options.
@@ -159,6 +191,8 @@ Option rules:
 		buffer.WriteString(`
 ` + optionCategory.name + `:
 `)
+
+		buffer.WriteString(dlOpen)
 
 		for _, opt := range optionsList {
 			option := asOption(opt)
@@ -170,19 +204,37 @@ Option rules:
 
 			flags := strings.Split(def.flags, "|")
 			buffer.WriteString("\n ")
+			buffer.WriteString(dtOpen)
+
 			for pos, flag := range flags {
 				if pos > 0 {
 					buffer.WriteRune(' ')
 				}
-				buffer.WriteString(color2String + flag + colorEndString)
+				if !markdown && isTerminal {
+					buffer.WriteString(color2String + flag + colorEndString)
+				} else {
+					buffer.WriteString(flag)
+				}
 			}
-			buffer.WriteString("\n  " + def.description + "\n")
+
+			buffer.WriteString(dtClose)
+			buffer.WriteString("\n ")
+			buffer.WriteString(ddIndent)
+			buffer.WriteString(ddOpen)
+			buffer.WriteString(def.description)
+			buffer.WriteString(ddClose)
+			buffer.WriteRune('\n')
 		}
+
+		buffer.WriteString(dlClose)
 
 		if optionCategory.additionalInfo != "" {
 			lines := strings.Split(optionCategory.additionalInfo, "\n")
 			for _, line := range lines {
-				buffer.WriteString("\n " + line + "\n")
+				buffer.WriteRune('\n')
+				buffer.WriteString(ddIndent)
+				buffer.WriteString(line)
+				buffer.WriteRune('\n')
 			}
 		}
 	}
@@ -190,58 +242,58 @@ Option rules:
 	buffer.WriteString(`
 Output format string:
 
- %i :  result number, 1-indexed
- %p :  file path
- %l :  line number, 1-indexed
- %c :  column number, 1-indexed
- %s :  full line
- %% :  percent sign
- %n :  newline
+` + ddIndent + `%i :  result number, 1-indexed` + mdLineBreak + `
+` + ddIndent + `%p :  file path` + mdLineBreak + `
+` + ddIndent + `%l :  line number, 1-indexed` + mdLineBreak + `
+` + ddIndent + `%c :  column number, 1-indexed` + mdLineBreak + `
+` + ddIndent + `%s :  full line` + mdLineBreak + `
+` + ddIndent + `%% :  percent sign` + mdLineBreak + `
+` + ddIndent + `%n :  newline` + mdLineBreak + `
 
 Environment variables:
+` + dlOpen + `
+ ` + dtOpen + configEnvVar + dtClose + `
+ ` + ddIndent + ddOpen + `list of options to use, can be overridden from command line` + ddClose + `
 
- ` + configEnvVar + `
-  list of options to use, can be overridden from command line
-
- ` + editorEnvVar + `
-  used as default editor when ` + optionEditor.getDefinition().flags + ` is not specified
-
+ ` + dtOpen + editorEnvVar + dtClose + `
+ ` + ddIndent + ddOpen + `used as default editor when ` + optionEditor.getDefinition().flags + ` is not specified` + ddClose + `
+` + dlClose + `
 Config file:
 
- Stores default command line options in a config file also:
+` + ddIndent + longProgramName + ` may optionally store a config file in your home directory which could contain a list of options to set before it reads from the command line. When the same option value is specified in both the config file and the environment variable, the option value from the environment variable will take higher priority. The option values from the command line will always take the highest priority. Note that boolean options will have their values toggled each time they appear, whether from the config file, the environment variable, or the command line. The config file is stored in the following location:
+` + dlOpen + `
+ ` + dtOpen + `WINDOWS` + dtClose + ` 
+ ` + ddIndent + ddOpen + `%HOMEDRIVE%%HOMEPATH%\` + configSubDir + `\` + configFileName + ddClose + `
 
- WINDOWS
-  %HOMEDRIVE%%HOMEPATH%\` + configSubDir + `\` + configFileName + `
-
- NON-WINDOWS
-  $HOME/` + configSubDir + `/` + configFileName + `
-
+ ` + dtOpen + `NON-WINDOWS` + dtClose + ` 
+ ` + ddIndent + ddOpen + `$HOME/` + configSubDir + `/` + configFileName + ddClose + `
+` + dlClose + `
 Examples:
 
- 1. Search for all case-insensitive "World" within files only:
-  ` + programName + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` world
+` + ddIndent + `1. Search for all case-insensitive "World" within files only:
+` + ddIndent + ` ` + programName + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` world
 
- 2. Search for all filenames containing ".txt":
-  ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExcludeFiles) + `=* .txt
+` + ddIndent + `2. Search for all filenames containing ".txt":
+` + ddIndent + ` ` + programName + ` ` + getFirstOptionFlag(optionSearchNamesOnly) + ` ` + getFirstOptionFlag(optionExcludeFiles) + `=* .txt
 
- 3. Search for all lines containing both "-abc" and "-xyz":
-  ` + programName + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` ` + getFirstOptionFlag(optionEndOfOptions) + ` -abc -xyz
+` + ddIndent + `3. Search for all lines containing both "-abc" and "-xyz":
+` + ddIndent + ` ` + programName + ` ` + getFirstOptionFlag(optionSearchContentsOnly) + ` ` + getFirstOptionFlag(optionEndOfOptions) + ` -abc -xyz
 
- 4. Search for exact phrase "hello world" and open result in notepad:
-  ` + programName + ` ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad "hello world"
+` + ddIndent + `4. Search for exact phrase "hello world" and open result in notepad:
+` + ddIndent + ` ` + programName + ` ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad "hello world"
 
- 5. Some possibly useful flags to put in your config file:
-  ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionExcludeDirs) + `=.git;.svn"
+` + ddIndent + `5. Some possibly useful flags to put in your config file:
+` + ddIndent + ` ` + programName + ` ` + getFirstOptionFlag(optionSetConfig) + `="` + getFirstOptionFlag(optionShowTabs) + ` ` + getFirstOptionFlag(optionIgnoreCase) + ` ` + getFirstOptionFlag(optionWriteToFile) + ` ` + getFirstOptionFlag(optionEditor) + `=notepad++ ` + getFirstOptionFlag(optionSpawn) + ` ` + getFirstOptionFlag(optionExcludeDirs) + `=.git;.svn"
 
 Feedback:
 
- We would love to hear from you! Please email all comments and suggestions for improvements to ` + contactEmail + `!
+` + ddIndent + `We would love to hear from you! Please email all comments and suggestions for improvements to ` + contactEmail + `!
 
- Have fun searching through your files!
+` + ddIndent + `Have fun searching through your files!
 
 - The FindFile Team
 
-email:   ` + contactEmail + `
+email:   ` + contactEmail + mdLineBreak + `
 website: ` + websiteURL + `
 
 (Help for ` + longProgramName + ` version ` + version + `)
@@ -266,7 +318,7 @@ website: ` + websiteURL + `
 		indentSpacesArray[i] = buffer.String()
 	}
 
-	regex := regexp.MustCompile(`(?m)^( +)(\S.+)$`)
+	regex := regexp.MustCompile(`(?m)^( +)(\S.+)`)
 	text = regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
 		spaces, text := parts[1], parts[2]
@@ -275,7 +327,7 @@ website: ` + websiteURL + `
 	})
 
 	// Wrap any long lines.
-	regex = regexp.MustCompile(`(?m)^( *)(\S.+)$`)
+	regex = regexp.MustCompile(`(?m)^( *)(\S.+)`)
 	text = regex.ReplaceAllStringFunc(text, func(s string) string {
 		if len(s) <= maxColumn {
 			return s
@@ -290,47 +342,47 @@ website: ` + websiteURL + `
 }
 
 func transformSectionHeader(text string, transform func(sectionHeader string) string) string {
-	regex := regexp.MustCompile(`(?m)^([A-Z]\S.+):(.*)$`)
+	regex := regexp.MustCompile(`(?m)^([A-Z][^,:@!]+)(:)\n`)
 	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		sectionHeader, rest := parts[1], parts[2]
-		return transform(sectionHeader) + rest
+		sectionHeader := parts[1]
+		return transform(sectionHeader) + "\n"
 	})
 }
 
-func transformNumberings(text string, transform func(indentSpaces, numbering, text string) string) string {
-	regex := regexp.MustCompile(`(?m)^(\s+)(\d+\.)( .+)$`)
+func transformNumberings(text string, transform func(numbering, gap, text string) string) string {
+	regex := regexp.MustCompile(`(?m)^( *)(\d+\.)( )([^\n]+)`)
 	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		indentSpaces, numbering, rest := parts[1], parts[2], parts[3]
-		return transform(indentSpaces, numbering, rest)
+		indentSpaces, numbering, gap, rest := parts[1], parts[2], parts[3], parts[4]
+		return indentSpaces + transform(numbering, gap, rest)
 	})
 }
 
-func transformOutputFormats(text string, transform func(indentSpaces, format, description string) string) string {
-	regex := regexp.MustCompile(`(?m)^(\s+)(%\S)(\s+:.+)$`)
+func transformOutputFormats(text string, transform func(indentSpaces, format, gap, description string) string) string {
+	regex := regexp.MustCompile(`(?m)^( *)(%\S)( +: +)(\S.+)`)
 	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		indentSpaces, format, description := parts[1], parts[2], parts[3]
-		return transform(indentSpaces, format, description)
+		indentSpaces, format, gap, description := parts[1], parts[2], parts[3], parts[4]
+		return transform(indentSpaces, format, gap, description)
 	})
 }
 
-func transformSampleCommands(text string, transform func(indentSpaces, command string) string) string {
-	regex := regexp.MustCompile(`(?m)^(\s+)(` + programName + ` .+)$`)
+func transformSampleCommands(text string, transform func(indentSpaces, command, spaces string) string) string {
+	regex := regexp.MustCompile(`(?m)^( +)(` + programName + ` .+\S)( *)`)
 	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		indentSpaces, command := parts[1], parts[2]
-		return transform(indentSpaces, command)
+		indentSpaces, command, spaces := parts[1], parts[2], parts[3]
+		return transform(indentSpaces, command, spaces)
 	})
 }
 
-func transformSmallHeaders(text string, transform func(header, text string) string) string {
-	regex := regexp.MustCompile(`(?m)^(\S.+:\s+)(\S.*)$`)
+func transformSmallHeaders(text string, transform func(header, gap, text string) string) string {
+	regex := regexp.MustCompile(`(?m)^(\S.+:)( +)(\S.*)\n`)
 	return regex.ReplaceAllStringFunc(text, func(s string) string {
 		parts := regex.FindStringSubmatch(s)
-		header, text := parts[1], parts[2]
-		return transform(header, text)
+		header, gap, text := parts[1], parts[2], parts[3]
+		return transform(header, gap, text) + "\n"
 	})
 }
 
@@ -344,34 +396,35 @@ func transformUppercaseWords(text string, transform func(indentSpaces, word stri
 }
 
 func printInfo() {
-	text := getInfoText()
+	text := getInfoText(false)
 
 	// Transform section header text.
+	beginSectionHeader := selectString(isTerminal, color1String, "[")
+	endSectionHeader := selectString(isTerminal, colorEndString, "]")
+
 	text = transformSectionHeader(text, func(sectionHeader string) string {
-		beginHeader := selectString(isTerminal, color1String, "[")
-		endHeader := selectString(isTerminal, colorEndString, "]")
-		return beginHeader + strings.ToUpper(sectionHeader) + endHeader
+		return beginSectionHeader + strings.ToUpper(sectionHeader) + endSectionHeader
 	})
 
 	if isTerminal {
 		// Color all numberings.
-		text = transformNumberings(text, func(indentSpaces, numbering, text string) string {
-			return indentSpaces + color2String + numbering + colorEndString + text
+		text = transformNumberings(text, func(numbering, gap, text string) string {
+			return color2String + numbering + colorEndString + gap + text
 		})
 
 		// Color all output formats.
-		text = transformOutputFormats(text, func(indentSpaces, format, description string) string {
-			return indentSpaces + color2String + format + colorEndString + description
+		text = transformOutputFormats(text, func(indentSpaces, format, gap, description string) string {
+			return indentSpaces + color2String + format + colorEndString + gap + description
 		})
 
 		// Color all sample commands.
-		text = transformSampleCommands(text, func(indentSpaces, command string) string {
+		text = transformSampleCommands(text, func(indentSpaces, command, spaces string) string {
 			return indentSpaces + color2String + command + colorEndString
 		})
 
 		// Color all small headers.
-		text = transformSmallHeaders(text, func(header, text string) string {
-			return header + color2String + text + colorEndString
+		text = transformSmallHeaders(text, func(header, gap, text string) string {
+			return header + gap + color2String + text + colorEndString
 		})
 
 		// Color all uppercase words.
@@ -397,24 +450,56 @@ func printInfo() {
 	putBlankLine()
 }
 
-func lineWrap(s, lineSeparator string, maxColumn int) string {
-	var buffer bytes.Buffer
-	column := 1
-	words := strings.Split(s, " ")
-	for _, word := range words {
-		if column+len(word) > maxColumn {
-			buffer.WriteString(lineSeparator)
-			column = len(word)
-		} else if column > 1 {
-			buffer.WriteRune(' ')
-			column += 1 + len(word)
-		} else {
-			column += len(word)
+func printMarkDownInfo() {
+	text := getInfoText(true)
+
+	// Transform section header text.
+	text = transformSectionHeader(text, func(sectionHeader string) string {
+		return "### " + strings.ToUpper(sectionHeader)
+	})
+
+	// Transform all numberings.
+	text = transformNumberings(text, func(numbering, gap, text string) string {
+		return numbering + gap + "**" + text + "**" + singleLineBreak
+	})
+
+	// Transform all output formats.
+	text = transformOutputFormats(text, func(indentSpaces, format, gap, description string) string {
+		return indentSpaces + "`" + format + "`" + gap + description
+	})
+
+	// Transform all sample commands.
+	text = transformSampleCommands(text, func(indentSpaces, command, spaces string) string {
+		if spaces == "" {
+			return indentSpaces + "`" + command + "`" + spaces
 		}
-		buffer.WriteString(word)
+		return indentSpaces + command
+	})
+
+	// Transform all small headers.
+	text = transformSmallHeaders(text, func(header, gap, text string) string {
+		return header + gap + text
+	})
+
+	// Transform all uppercase words.
+	text = transformUppercaseWords(text, func(indentSpaces, word string) string {
+		return "</dd>\n" +
+			"</dl>\n" +
+			"<dl>\n" +
+			indentSpaces + "<dt>" + word + "</dt>\n" +
+			indentSpaces + "<dd>"
+	})
+
+	// Add page title.
+	title := "Info for " + longProgramName + " for Windows, Linux, and Mac"
+	var buffer bytes.Buffer
+	for i := len(title); i > 0; i-- {
+		buffer.WriteRune('=')
 	}
-	s = buffer.String()
-	return s
+	text = title + "\n" + buffer.String() + "\n" + text
+
+	puts(text)
+	putBlankLine()
 }
 
 /**************************************************************************/

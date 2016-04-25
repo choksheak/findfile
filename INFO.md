@@ -19,13 +19,15 @@ searching through files using non-indexed search.
 
 1. **Alternate option specifiers**  
     '-' and '--' can be replaced by '/' in any option (Windows mode).
+
 2. **Toggling boolean options**  
-    For options that do not require a value, each time it appears will
-    toggle its value (true/false).
+    For options that do not require a value, each time it appears will toggle
+    its value (true/false).
+
 3. **Specifying option values**  
-    For options that require a value (uppercase-letter options), the value
-    must be specified using either '=' or ':', without spaces, e.g. "-X=123",
-    "/X:123"
+    For options that require a value (uppercase-letter options), the value must
+    be specified using either '=' or ':', without spaces, e.g. "-X=123", "/X:123"
+
 4. **Spaces in option values**  
     For option values with spaces, use double-quotes to enclose the option
     value, e.g. -X="hello world", "--xyz:hello world"
@@ -43,28 +45,31 @@ searching through files using non-indexed search.
     <dd>print full help information</dd>
 
     <dt>-vs --version</dt>
-    <dd>print version and exit
+    <dd>print version and exit</dd>
 
     <dt>-l --list-all</dt>
-    <dd>list all the dir and file names without searching
+    <dd>list all the dir and file names without searching</dd>
 
     <dt>-a --show-args</dt>
     <dd>print passed-in arguments that are specified after this argument</dd>
 
     <dt>-- --end-of-options</dt>
     <dd>indicate end of options, so that you can write search strings starting
-        with dash '-' and slash '/'</dd>
+    with dash '-' and slash '/'</dd>
+
+    <dt>-md --markdown</dt>
+    <dd>print help information in markdown format</dd>
 </dl>
 
 ### WHERE TO SEARCH
 
 <dl>
     <dt>-D --dir=[starting-dir]</dt>
-    <dd>starting dir to search, defaults to the current dir "."
+    <dd>starting dir to search, defaults to the current dir "."</dd>
 
     <dt>-M --max-levels=[-1:2147483647]</dt>
     <dd>search up to given dir depth, 0 to search starting dir only; default of
-        -1 means no limit</dd>
+    -1 means no limit</dd>
 </dl>
 
 ### WHAT TO SEARCH
@@ -89,16 +94,16 @@ searching through files using non-indexed search.
     <dd>exclude glob pattern for dirs</dd>
 </dl>
 
-For multiple glob patterns, use ';' as the delimiter, e.g. "*.cfg; *.txt;
-*.go". Leading and trailing spaces in each sub-expression will be ignored.
+For multiple glob patterns, use ';' as the delimiter, e.g. "*.cfg; *.txt; *.go".
+Leading and trailing spaces in each sub-expression will be ignored.
 
-Note that when you use the '*' and '?' pattern strings from the command
-line, they may be escaped by the command shell before FindFile is invoked.
-Therefore it is best to always enclose these patterns with double-quotes,
-e.g. -I="*.txt", or "-I=*.txt".
+Note that when you use the '*' and '?' pattern strings from the command line,
+they may be escaped by the command shell before FindFile is invoked. Therefore it
+is best to always enclose these patterns with double-quotes, e.g. -I="*.txt", or
+"-I=*.txt".
 
 For detailed syntax of glob patterns, please see:
-    https://golang.org/pkg/path/filepath/#Match 
+https://golang.org/pkg/path/filepath/#Match
 
 ### HOW TO MATCH SEARCH STRING
 
@@ -127,7 +132,7 @@ https://golang.org/pkg/regexp/syntax/
 
     <dt>-nc --no-color</dt>
     <dd>turn off coloring for matching strings; coloring only applies for
-        terminal windows</dd>
+    terminal windows</dd>
 
     <dt>-b --show-brackets</dt>
     <dd>show brackets around the matching substrings</dd>
@@ -143,15 +148,15 @@ https://golang.org/pkg/regexp/syntax/
 
     <dt>-cc --show-control-chars</dt>
     <dd>show all control characters as-is; control characters here are defined
-        as ASCII characters 0-8, 11-12, 14-31, 127</dd>
+    as ASCII characters 0-8, 11-12, 14-31, 127</dd>
 
     <dt>-L --context-lines=[0:2147483647]</dt>
     <dd>print number of lines before and after match; default is 0 to show
-        matching line only</dd>
+    matching line only</dd>
 
     <dt>-C --context-columns=[0:2147483647]</dt>
     <dd>print number of characters around and including matching substring;
-        default is 200; use 0 to show the entire line</dd>
+    default is 200; use 0 to show the entire line</dd>
 
     <dt>-abs --absolute-path</dt>
     <dd>print absolute file paths</dd>
@@ -175,7 +180,8 @@ https://golang.org/pkg/regexp/syntax/
     <dd>print matching filenames only</dd>
 
     <dt>-F --format=[format-string]</dt>
-    <dd>specify output format string; default is "%n%i. %p line %l col %c%n%s%n"</dd>
+    <dd>specify output format string; default is "%n%i. %p line %l col
+    %c%n%s%n"</dd>
 </dl>
 
 ### OUTPUT FILE OPTIONS
@@ -186,7 +192,7 @@ https://golang.org/pkg/regexp/syntax/
 
     <dt>-O --output-file=[filename]</dt>
     <dd>write output to given file name, defaults to "\temp\ff-output.txt in
-        Windows, and "/tmp/ff-output.txt" in other operating systems</dd>
+    Windows, and "/tmp/ff-output.txt" in other operating systems</dd>
 
     <dt>-s --spawn</dt>
     <dd>spawn editor program to open output file</dd>
@@ -210,13 +216,13 @@ https://golang.org/pkg/regexp/syntax/
 
 ### OUTPUT FORMAT STRING
 
-    `%i` :  result number, 1-indexed
-    `%p` :  file path
-    `%l` :  line number, 1-indexed
-    `%c` :  column number, 1-indexed
-    `%s` :  full line
-    `%%` :  percent sign
-    `%n` :  newline
+`%i` :  result number, 1-indexed  
+`%p` :  file path  
+`%l` :  line number, 1-indexed  
+`%c` :  column number, 1-indexed  
+`%s` :  full line  
+`%%` :  percent sign  
+`%n` :  newline  
 
 ### ENVIRONMENT VARIABLES
 
@@ -225,42 +231,50 @@ https://golang.org/pkg/regexp/syntax/
     <dd>list of options to use, can be overridden from command line</dd>
 
     <dt>EDITOR</dt>
-    <dd>used as default editor when -E|--editor=[editor-path] is not specified</dd>
+    <dd>used as default editor when -E|--editor=[editor-path] is not
+    specified</dd>
 </dl>
 
 ### CONFIG FILE
 
-Stores default command line options in a config file also:
+FindFile may optionally store a config file in your home directory which could
+contain a list of options to set before it reads from the command line. When the
+same option value is specified in both the config file and the environment
+variable, the option value from the environment variable will take higher
+priority. The option values from the command line will always take the highest
+priority. Note that boolean options will have their values toggled each time they
+appear, whether from the config file, the environment variable, or the command
+line. The config file is stored in the following location:
 
 <dl>
-    <dt>WINDOWS</dt>
+    <dt>WINDOWS</dt> 
     <dd>%HOMEDRIVE%%HOMEPATH%\.findfile\config.txt</dd>
 
-    <dt>NON-WINDOWS</dt>
+    <dt>NON-WINDOWS</dt> 
     <dd>$HOME/.findfile/config.txt</dd>
 </dl>
 
 ### EXAMPLES
 
-1. Search for all case-insensitive "World" within files only:  
+1. **Search for all case-insensitive "World" within files only:**  
     `ff -i -c world`
 
-2. Search for all filenames containing ".txt":  
+2. **Search for all filenames containing ".txt":**  
     `ff -n -XF=* .txt`
 
-3. Search for all lines containing both "-abc" and "-xyz":  
+3. **Search for all lines containing both "-abc" and "-xyz":**  
     `ff -c -- -abc -xyz`
 
-4. Search for exact phrase "hello world" and open result in notepad:  
+4. **Search for exact phrase "hello world" and open result in notepad:**  
     `ff -s -E=notepad "hello world"`
 
-5. Some possibly useful flags to put in your config file:  
+5. **Some possibly useful flags to put in your config file:**  
     `ff -S="-t -i -wf -E=notepad++ -s -XD=.git;.svn"`
 
 ### FEEDBACK
 
-We would love to hear from you! Please email all comments and suggestions
-for improvements to findfile.go@gmail.com!
+We would love to hear from you! Please email all comments and suggestions for
+improvements to findfile.go@gmail.com!
 
 Have fun searching through your files!
 
