@@ -554,7 +554,7 @@ func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool
 	// Get and check option.
 	option := getOptionByFlag(flag)
 	if option == nil {
-		putln("Unrecognized option \"%v\" given in the %v.", option, sourceName)
+		putln("Unrecognized option \"%v\" given in the %v.", flag, sourceName)
 		exit(1)
 	}
 
