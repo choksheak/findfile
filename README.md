@@ -34,11 +34,7 @@ We currently provide pre-built binaries for Windows AMD64/Intel64 and Ubuntu Lin
 If you need the software for a different OS/Architecture, please feel free to build it yourself using these steps.
 
 1. Install [Go] (https://golang.org/dl/) (no need to install Git)
-2. Install FindFile dependencies:
-```
-go get github.com/fatih/color
-go get golang.org/x/crypto/ssh/terminal
-```
+2. Install FindFile dependencies: `go get github.com/fatih/color`, `go get golang.org/x/crypto/ssh/terminal`
 3. Download the FindFile source tree [master.zip] (https://github.com/choksheak/findfile/archive/master.zip)
 4. Unzip into a `findfile` folder.
 5. From a command prompt or shell, cd to sub-directory `ff`.
