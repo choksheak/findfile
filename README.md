@@ -27,14 +27,23 @@ Don't worry, this is not a piece of malware or spyware! If you are skeptical, ju
 
 ##### Download Links
 
-Latest release version: 0.4.20160420
+We currently provide pre-built binaries for Windows AMD64/Intel64 and Ubuntu Linux AMD64/Intel64:
 
-- [Windows X64/AMD64 -- findfile-0.4.20160420.windows-amd64.zip] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420.windows-amd64.zip?raw=true)
-- [Ubuntu Linux X64/AMD64 -- findfile-0.4.20160420-ubuntu-linux-amd64.zip] (https://github.com/choksheak/findfile/blob/master/distribution/findfile-0.4.20160420-ubuntu-linux-amd64.zip?raw=true)
+- [**Download Page for Pre-Built Binaries**] (https://github.com/choksheak/findfile/tree/master/distribution)
 
-If you need the software for a different OS/Architecture, please feel free to build it yourself. You will need to install [Go] (https://golang.org/dl/), but will not need to install Git, to do the local build:
+If you need the software for a different OS/Architecture, please feel free to build it yourself using these steps.
 
-- [FindFile source tree -- master.zip] (https://github.com/choksheak/findfile/archive/master.zip)
+1. Install [Go] (https://golang.org/dl/) (no need to install Git)
+2. Install FindFile dependencies:
+```
+go get github.com/fatih/color
+go get golang.org/x/crypto/ssh/terminal
+```
+3. Download the FindFile source tree [master.zip] (https://github.com/choksheak/findfile/archive/master.zip)
+4. Unzip into a `findfile` folder.
+5. From a command prompt or shell, cd to sub-directory `ff`.
+6. Run: `go build`
+7. You will see a new file `ff.exe` in this folder. Just put this file to somewhere in your `PATH` environment variable.
 
 ### How to use FindFile
 
