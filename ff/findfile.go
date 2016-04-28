@@ -63,6 +63,7 @@ var numBytesRead int64
 var currentMatchCount int
 var outputFileHandle *os.File
 var outputFileWriter *bufio.Writer
+var outputFileInfo os.FileInfo
 var currentFilePath string
 var currentLineNumber int
 var currentLineText string
@@ -85,7 +86,6 @@ type matchIndexInfo struct {
 
 var currentLineMatchIndexInfo = matchIndexInfo{matchIndexes: make([]matchIndexSpan, 0, 20)}
 
-var outputFileAbsolutePath string
 var outputFileBaseName string
 
 var contextColumnTruncationMark = stringToIntArray("...")
@@ -308,18 +308,23 @@ func setupOutputFile() {
 		return
 	}
 
-	// Get absolute path for output file to avoid searching it (infinite loop).
-	outputFileAbsolutePath = tryGetAbsolutePath(optionOutputFile.value)
+	// Get the absolute path for the output file.
+	absolutePath := tryGetAbsolutePath(optionOutputFile.value)
 	if optionAbsolutePath.value {
-		optionOutputFile.value = outputFileAbsolutePath
+		optionOutputFile.value = absolutePath
 	}
 
 	outputFileHandle = file
-	outputFileBaseName = filepath.Base(outputFileAbsolutePath)
+	outputFileBaseName = filepath.Base(absolutePath)
 
 	// Add output file to buffered output writer.
 	outputFileWriter = bufio.NewWriterSize(file, ioBufferSize)
 	addOutputWriter(outputFileWriter)
+
+	// Get the file info to avoid searching it (infinite loop).
+	// Ignore errors because we will do anything with it.
+	fileInfo, _ := file.Stat()
+	outputFileInfo = fileInfo
 }
 
 func finalizeOutputFile() {
@@ -639,6 +644,11 @@ func searchDir(dir string) {
 					continue
 				}
 			} else {
+				// Always skip the output file.
+				if (outputFileInfo != nil) && os.SameFile(outputFileInfo, fileInfo) {
+					continue
+				}
+
 				if !shouldIncludeFile(fileInfo.Name()) {
 					continue
 				}
@@ -729,22 +739,6 @@ func visitFileOrDir(path string, fileInfo os.FileInfo) {
 	}
 
 	if !isDir && !optionSearchNamesOnly.value {
-		// If this file is the output file, skip it.
-		if optionWriteToFile.value {
-			if outputFileAbsolutePath == path {
-				return
-			}
-			if !optionAbsolutePath.value {
-				// Quick check to see if they could possibly be the same file.
-				if outputFileBaseName == filepath.Base(path) {
-					// More expensive but more accurate check.
-					if outputFileAbsolutePath == tryGetAbsolutePath(path) {
-						return
-					}
-				}
-			}
-		}
-
 		searchFileContents()
 	}
 }
