@@ -71,7 +71,7 @@ func setConfigOptions(options string) {
 	// Info.
 	putBlankLine()
 	putln("Setting config options:")
-	putln("%v%v", printIndent, options)
+	printArgumentsAsList(newOptionStrings, false)
 	putBlankLine()
 
 	// Merge old and new options.
@@ -130,7 +130,7 @@ func unsetConfigOptions(options string) {
 	// Info.
 	putBlankLine()
 	putln("Unsetting config options:")
-	putln("%v%v", printIndent, options)
+	printArgumentsAsList(newOptionStrings, false)
 	putBlankLine()
 
 	// Remove new options from old options.
