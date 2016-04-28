@@ -1715,11 +1715,11 @@ func replaceControlCharacters(array []int) []int {
 // Trap Ctrl+C.
 
 func trapControlC() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
+	channel := make(chan os.Signal, 1)
+	signal.Notify(channel, os.Interrupt)
+	signal.Notify(channel, syscall.SIGTERM)
 	go func() {
-		<-c
+		<-channel
 		putln("Goodbye")
 		cleanUpAndExit(-1)
 	}()
