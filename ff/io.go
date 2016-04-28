@@ -36,42 +36,51 @@ import (
 
 // I/O-related constants.
 
-// Standard buffer size for our I/O operations.
-const ioBufferSize = 4096
+const (
+	// Standard buffer size for our I/O operations.
+	ioBufferSize = 4096
 
-// The largest unicode code takes 6 bytes. We give it 7 just to be safe.
-const maxUnicodeCharBytes = 7
+	// The largest unicode code takes 6 bytes. We give it 7 just to be safe.
+	maxUnicodeCharBytes = 7
+
+	// Common indent to use when printing output text.
+	printIndent = "    "
+)
 
 /**************************************************************************/
 
 // I/O-related variables.
 
-// Check if windows or other OS.
-var isWindows = (os.PathSeparator == '\\') && (os.PathListSeparator == ';')
+var (
+	// Check if windows or other OS.
+	isWindows = (os.PathSeparator == '\\') && (os.PathListSeparator == ';')
 
-// Temp dir to use.
-var tempDir = selectString(isWindows, `c:\temp`, `/tmp`)
+	// Temp dir to use.
+	tempDir = selectString(isWindows, `c:\temp`, `/tmp`)
 
-// User's home directory.
-var userHomeDir = selectString(isWindows,
-	filepath.Join(os.Getenv("HOMEDRIVE"), os.Getenv("HOMEPATH")),
-	os.Getenv("HOME"))
+	// User's home directory.
+	userHomeDir = selectString(isWindows,
+		filepath.Join(os.Getenv("HOMEDRIVE"), os.Getenv("HOMEPATH")),
+		os.Getenv("HOME"))
 
-// Why is this not a system constant in Go??
-var osNewLine = selectString(isWindows, "\r\n", "\n")
+	// Why is this not a system constant in Go??
+	osNewLine = selectString(isWindows, "\r\n", "\n")
 
-// Need to know whether we are in a terminal or not.
-var isTerminal = terminal.IsTerminal(int(os.Stdout.Fd()))
+	// Need to know whether we are in a terminal or not.
+	isTerminal = terminal.IsTerminal(int(os.Stdout.Fd()))
+
+	// Writer interface for stdout.
+	stdoutWriter = bufio.NewWriterSize(os.Stdout, ioBufferSize)
+
+	// List of buffered I/O wrapper writers.
+	outputWriters = []*bufio.Writer{
+		stdoutWriter,
+	}
+)
 
 /**************************************************************************/
 
 // Buffered output.
-
-var stdoutWriter = bufio.NewWriterSize(os.Stdout, ioBufferSize)
-
-var outputWriters = []*bufio.Writer{
-	stdoutWriter,
-}
 
 func addOutputWriter(writer *bufio.Writer) {
 	outputWriters = append(outputWriters, writer)

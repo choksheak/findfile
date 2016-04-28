@@ -291,6 +291,10 @@ var disallowedConfigOptions = map[string]bool{
 // List of all options.
 var optionsList = make([]interface{}, 0, 50)
 
+/**************************************************************************/
+
+// Construct options.
+
 func newBoolOption(category optionCategory, name, flags, description string, defaultValue bool) *boolOption {
 	newDefinition := optionDefinition{category, name, flags, description, "bool"}
 	newOption := boolOption{definition: newDefinition, defaultValue: defaultValue, value: defaultValue}
@@ -527,9 +531,6 @@ func appendNonOptionArgument(argumentString, sourceName string) {
 	}
 
 	nonOptionArguments = append(nonOptionArguments, argumentString)
-	if optionShowArgs.value {
-		putln("Read non-option from %v: %v", sourceName, argumentString)
-	}
 }
 
 func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool) {
@@ -610,10 +611,6 @@ func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool
 		panic("Bad valueTypeName: " + def.valueTypeName)
 	}
 
-	if optionShowArgs.value {
-		putln("Read option from %v: %v = %v (%v)", sourceName, flag, value, flags)
-	}
-
 	optionArguments = append(optionArguments, argumentString)
 }
 
@@ -678,30 +675,171 @@ func splitArgumentsString(arguments, sourceName string) []string {
 // Load and read arguments.
 
 func loadArguments() {
-	loadArgumentsFromConfigFile()
-	loadArgumentsFromEnvironment()
+	// Load all arguments first because we might need to print them all out.
+	configFileContents := strings.TrimSpace(readConfigFile())
+	configFileSourceName := "config file " + configFilePath
+	configFileArguments := splitArgumentsString(configFileContents, configFileSourceName)
+
+	envVarContents := strings.TrimSpace(os.Getenv(configEnvVar))
+	envVarSourceName := "environment variable " + configEnvVar
+	envVarArguments := splitArgumentsString(envVarContents, envVarSourceName)
+
+	commandLineArguments := os.Args[1:]
+
+	// Check if we need to print out the arguments.
+	setBooleanOptionValue(optionShowArgs, configFileArguments, false)
+	setBooleanOptionValue(optionShowArgs, envVarArguments, false)
+	setBooleanOptionValue(optionShowArgs, commandLineArguments, true)
+
+	setBooleanOptionValue(optionListConfig, commandLineArguments, true)
+
+	// Print args if needed.
+	if optionShowArgs.value || optionListConfig.value {
+		printArguments(
+			configFileContents,
+			configFileArguments,
+			envVarContents,
+			envVarArguments,
+			commandLineArguments,
+			optionListConfig.value,
+			optionListConfig.value,
+			optionShowArgs.value)
+
+		// Reset option values.
+		optionShowArgs.value = false
+		optionListConfig.value = false
+	}
+
+	// Do the actual load now.
+	loadArgumentsFromConfigString(configFileArguments, configFileSourceName)
+	loadArgumentsFromConfigString(envVarArguments, envVarSourceName)
 	loadArgumentsFromCommandLine()
 }
 
-func loadArgumentsFromConfigFile() {
-	fileContents := readConfigFile()
-	if fileContents == "" {
-		return
+func setBooleanOptionValue(optionToSet *boolOption, arguments []string, allowNonOptions bool) bool {
+	for _, arg := range arguments {
+		if allowNonOptions {
+			if !hasOptionPrefix(arg) {
+				break
+			}
+		}
+		option := getOptionByFlag(arg)
+		if option == nil {
+			// Ignore invalid options for now.
+			continue
+		}
+		if option == optionToSet {
+			// Use boolean toggle.
+			optionToSet.value = !optionToSet.value
+		}
+		if allowNonOptions {
+			if option == optionEndOfOptions {
+				break
+			}
+		}
 	}
-
-	// Read arguments.
-	sourceName := "config file " + configFilePath
-	loadArgumentsFromConfigString(fileContents, sourceName)
+	return false
 }
 
-func loadArgumentsFromEnvironment() {
-	envVar := os.Getenv(configEnvVar)
-	if envVar == "" {
-		return
+func printArguments(
+	configFileContents string,
+	configFileArguments []string,
+	envVarContents string,
+	envVarArguments []string,
+	commandLineArguments []string,
+	showEmptyArguments bool,
+	showEditorEnvVar bool,
+	showCommandLineArguments bool) {
+
+	isPrinted := false
+
+	if showEmptyArguments || configFileContents != "" {
+		isPrinted = true
+		putBlankLine()
+		putln("Config file location:")
+		putln("%v%v", printIndent, configFilePath)
+
+		putBlankLine()
+		putln("Config file options:")
+
+		exists, _ := pathExists(configFilePath)
+		if !exists {
+			putln("%vConfig file does not exist", printIndent)
+		} else {
+			if configFileContents == "" {
+				putln("%v<empty>", printIndent)
+			} else {
+				printArgumentsAsList(configFileArguments, false)
+			}
+		}
 	}
 
-	sourceName := "environment variable " + configEnvVar
-	loadArgumentsFromConfigString(envVar, sourceName)
+	if showEmptyArguments || envVarContents != "" {
+		isPrinted = true
+		putBlankLine()
+		putln("Environment variable %v options:", configEnvVar)
+		if envVarContents == "" {
+			putln("%v<not set>", printIndent)
+		} else {
+			printArgumentsAsList(envVarArguments, false)
+		}
+	}
+
+	if showEditorEnvVar {
+		isPrinted = true
+		putBlankLine()
+		putln("Environment variable %v value:", editorEnvVar)
+		editor := os.Getenv(editorEnvVar)
+		putln("%v%v", printIndent, selectString(editor == "", "<not set>", editor))
+	}
+
+	// When listing config only, don't show command line arguments.
+	if showCommandLineArguments {
+		isPrinted = true
+		putBlankLine()
+		putln("Command line arguments:")
+		if len(commandLineArguments) == 0 {
+			putln("%v<empty>", printIndent)
+		} else {
+			printArgumentsAsList(commandLineArguments, true)
+		}
+	}
+
+	if isPrinted {
+		putBlankLine()
+	}
+}
+
+func printArgumentsAsList(arguments []string, allowNonOptions bool) {
+	arrayOfArrays := make([][]string, len(arguments))
+	endOfOptions := false
+
+	for pos, argument := range arguments {
+		if allowNonOptions {
+			if endOfOptions {
+				arrayOfArrays[pos] = []string{argument, ":", "Search string"}
+				continue
+			} else if !hasOptionPrefix(argument) {
+				endOfOptions = true
+				arrayOfArrays[pos] = []string{argument, ":", "Search string"}
+				continue
+			}
+		}
+		flag, _ := splitOptionFlagAndValue(argument)
+		option := getOptionByFlag(flag)
+		if option == nil {
+			arrayOfArrays[pos] = []string{argument, ":", "Unknown option"}
+		} else {
+			if allowNonOptions {
+				if option == optionEndOfOptions {
+					endOfOptions = true
+				}
+			}
+			arrayOfArrays[pos] = []string{argument, ":", option.getDefinition().flags}
+		}
+	}
+
+	printNeatColumns(arrayOfArrays, len(printIndent), 2)
 }
 
 func loadArgumentsFromCommandLine() {
@@ -726,8 +864,7 @@ func readConfigFile() string {
 	return string(bytes)
 }
 
-func loadArgumentsFromConfigString(configString, sourceName string) {
-	arguments := splitArgumentsString(configString, sourceName)
+func loadArgumentsFromConfigString(arguments []string, sourceName string) {
 	checkForUnrecognizedOptions(arguments, sourceName)
 	checkForDisallowedConfigOptions(arguments, sourceName)
 

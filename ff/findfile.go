@@ -152,7 +152,7 @@ func performArgumentActions() {
 		needExit = true
 	}
 	if optionListConfig.value {
-		printConfigOptions()
+		// Already handled during argument parsing stage.
 		needExit = true
 	}
 	if needExit {

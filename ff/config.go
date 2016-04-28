@@ -69,10 +69,14 @@ func setConfigOptions(options string) {
 	mergedOptionsMap := readConfigFileOptionsMap()
 
 	// Info.
-	putln("Setting config options: %v", options)
+	putBlankLine()
+	putln("Setting config options:")
+	putln("%v%v", printIndent, options)
 	putBlankLine()
 
 	// Merge old and new options.
+	isChanged := false
+
 	for _, newOptionString := range newOptionStrings {
 		newOption := getOptionByFlag(newOptionString)
 		newDef := newOption.getDefinition()
@@ -81,6 +85,7 @@ func setConfigOptions(options string) {
 		if oldOptionString == "" {
 			putln("Adding new option: %v (%v)", newOptionString, newDef.flags)
 			mergedOptionsMap[newDef.name] = newOptionString
+			isChanged = true
 		} else if oldOptionString == newOptionString {
 			putln("Option already exists: %v (%v)",
 				oldOptionString,
@@ -91,12 +96,13 @@ func setConfigOptions(options string) {
 				newOptionString,
 				newDef.flags)
 			mergedOptionsMap[newDef.name] = newOptionString
+			isChanged = true
 		}
 	}
 
 	// Write back list of options into config file.
 	putBlankLine()
-	writeOptionsToConfigFile(mergedOptionsMap, configFilePath)
+	writeOptionsToConfigFileIfChanged(mergedOptionsMap, configFilePath, isChanged)
 }
 
 func unsetConfigOptions(options string) {
@@ -112,7 +118,7 @@ func unsetConfigOptions(options string) {
 
 	// Validate that config file args are present.
 	if len(mergedOptionsMap) == 0 {
-		putln("No arguments defined in the config file \"%v\". Nothing to unset.", configFilePath)
+		putln("Config file \"%v\" is empty. Nothing to unset.", configFilePath)
 		exit(1)
 	}
 
@@ -122,10 +128,14 @@ func unsetConfigOptions(options string) {
 	checkForDisallowedConfigOptions(newOptionStrings, "config file")
 
 	// Info.
-	putln("Unsetting config options: %v", options)
+	putBlankLine()
+	putln("Unsetting config options:")
+	putln("%v%v", printIndent, options)
 	putBlankLine()
 
 	// Remove new options from old options.
+	isChanged := false
+
 	for _, newOptionString := range newOptionStrings {
 		newOption := getOptionByFlag(newOptionString)
 		newDef := newOption.getDefinition()
@@ -136,12 +146,13 @@ func unsetConfigOptions(options string) {
 		} else {
 			putln("Removing existing option: %v (%v)", oldOptionString, newDef.flags)
 			delete(mergedOptionsMap, newDef.name)
+			isChanged = true
 		}
 	}
 
 	// Write back list of options into config file.
 	putBlankLine()
-	writeOptionsToConfigFile(mergedOptionsMap, configFilePath)
+	writeOptionsToConfigFileIfChanged(mergedOptionsMap, configFilePath, isChanged)
 }
 
 func readConfigFileOptionsMap() map[string]string {
@@ -164,6 +175,15 @@ func readConfigFileOptionsMap() map[string]string {
 	return mergedOptionsMap
 }
 
+func writeOptionsToConfigFileIfChanged(optionsToWrite map[string]string, configFilePath string, isChanged bool) {
+	if isChanged {
+		writeOptionsToConfigFile(optionsToWrite, configFilePath)
+	} else {
+		putln("No changes were made to the config file.")
+	}
+
+}
+
 func writeOptionsToConfigFile(optionsToWrite map[string]string, configFilePath string) {
 	var optionsBuffer bytes.Buffer
 
@@ -184,59 +204,12 @@ func writeOptionsToConfigFile(optionsToWrite map[string]string, configFilePath s
 
 	// Write back list of options into config file.
 	putln("Writing options to config file \"%v\".", configFilePath)
-	putln("  %v", optionsBuffer.String())
+	putln("    %v", optionsBuffer.String())
 	err := ioutil.WriteFile(configFilePath, optionsBuffer.Bytes(), 0755)
 	if err != nil {
 		putln("Failed to write options to file: %v", err)
 		exit(1)
 	}
-	putBlankLine()
-}
-
-func printConfigOptions() {
-	putBlankLine()
-
-	exists, _ := pathExists(configFilePath)
-	if !exists {
-		putln("Config file %v does not exist.", configFilePath)
-	} else {
-		// Read options from config file.
-		fileContents := readConfigFile()
-		rawOptionStrings := splitArgumentsString(fileContents, "config file "+configFilePath)
-
-		if len(rawOptionStrings) == 0 {
-			putln("Config file %v is empty.", configFilePath)
-		} else {
-			putln("Config file location:")
-			putln("  %v", configFilePath)
-			putBlankLine()
-
-			putln("Options loaded from the config file:")
-			putln("  %v", fileContents)
-			putBlankLine()
-
-			putln("Legend:")
-			arrayOfArrays := make([][]string, len(rawOptionStrings))
-			for pos, optionString := range rawOptionStrings {
-				flag, _ := splitOptionFlagAndValue(optionString)
-				option := getOptionByFlag(flag)
-				if option == nil {
-					arrayOfArrays[pos] = []string{optionString, ":", "Unknown option"}
-				} else {
-					arrayOfArrays[pos] = []string{flag, ":", option.getDefinition().flags}
-				}
-			}
-
-			printNeatColumns(arrayOfArrays, 2, 2)
-		}
-	}
-	putBlankLine()
-
-	putln("Environment variables:")
-	value, isSet := os.LookupEnv(configEnvVar)
-	putln("  %v = %v", configEnvVar, selectString(isSet, value, "(not set)"))
-	value, isSet = os.LookupEnv(editorEnvVar)
-	putln("  %v = %v", editorEnvVar, selectString(isSet, value, "(not set)"))
 	putBlankLine()
 }
 
