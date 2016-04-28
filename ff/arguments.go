@@ -696,9 +696,7 @@ func loadArguments() {
 	// Print args if needed.
 	if optionShowArgs.value || optionListConfig.value {
 		printArguments(
-			configFileContents,
 			configFileArguments,
-			envVarContents,
 			envVarArguments,
 			commandLineArguments,
 			optionListConfig.value,
@@ -742,9 +740,7 @@ func setBooleanOptionValue(optionToSet *boolOption, arguments []string, allowNon
 }
 
 func printArguments(
-	configFileContents string,
 	configFileArguments []string,
-	envVarContents string,
 	envVarArguments []string,
 	commandLineArguments []string,
 	showEmptyArguments bool,
@@ -753,7 +749,7 @@ func printArguments(
 
 	isPrinted := false
 
-	if showEmptyArguments || configFileContents != "" {
+	if showEmptyArguments || len(configFileArguments) > 0 {
 		isPrinted = true
 		putBlankLine()
 		putln("Config file location:")
@@ -766,7 +762,7 @@ func printArguments(
 		if !exists {
 			putln("%vConfig file does not exist", printIndent)
 		} else {
-			if configFileContents == "" {
+			if len(configFileArguments) == 0 {
 				putln("%v<empty>", printIndent)
 			} else {
 				printArgumentsAsList(configFileArguments, false)
@@ -774,11 +770,11 @@ func printArguments(
 		}
 	}
 
-	if showEmptyArguments || envVarContents != "" {
+	if showEmptyArguments || len(envVarArguments) > 0 {
 		isPrinted = true
 		putBlankLine()
 		putln("Environment variable %v options:", configEnvVar)
-		if envVarContents == "" {
+		if len(envVarArguments) == 0 {
 			putln("%v<not set>", printIndent)
 		} else {
 			printArgumentsAsList(envVarArguments, false)
