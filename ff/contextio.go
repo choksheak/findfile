@@ -51,9 +51,9 @@ type (
 // Variables.
 
 var (
-	preContextLines    contextLines
-	postContextLines   contextLines
-	currentFileScanner *bufio.Scanner
+	preContextLines         contextLines
+	postContextLines        contextLines
+	contextLinesFileScanner *bufio.Scanner
 )
 
 /**************************************************************************/
@@ -83,16 +83,16 @@ func createContextLines(numLines int) contextLines {
 // Reading lines and maintaining context lines.
 
 func setFileForScanning(fileHandle *os.File) {
-	currentFileScanner = bufio.NewScanner(fileHandle)
+	contextLinesFileScanner = bufio.NewScanner(fileHandle)
 }
 
 // This function will read one line whenever it gets called.
 func hasNextLineInFile() bool {
-	return currentFileScanner.Scan()
+	return contextLinesFileScanner.Scan()
 }
 
 func getNextLineFromFile() string {
-	line := currentFileScanner.Text()
+	line := contextLinesFileScanner.Text()
 	numBytesRead += int64(len(line))
 	return line
 }
@@ -120,7 +120,7 @@ func getContextLineByDelta(delta int) contextLine {
 		return preContextLines.lines[index]
 	}
 
-	index := addToContextLineIndex(postContextLines.startIndex, delta)
+	index := addToContextLineIndex(postContextLines.startIndex, delta-1)
 	return postContextLines.lines[index]
 }
 

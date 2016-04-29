@@ -29,18 +29,15 @@ import (
 	"container/list"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	"unicode"
 )
 
 /**************************************************************************/
@@ -48,13 +45,7 @@ import (
 // Global variables used during search.
 
 var writeNoisyOutput = func(format string, a ...interface{}) {}
-var searchStringArgs []string
 var readableSearchString string
-var searchStringArgsToUse []string
-var searchStringArgsToUseCount []int
-var searchStringIntArrayToUse [][]int
-var searchStringArgsToExclude []string
-var searchStringIntArrayToExclude [][]int
 var searchStartTime time.Time
 var showFileNamesOnly bool
 var numDirsRead int64
@@ -73,31 +64,11 @@ var matchingLineIntArrayTempBuffer []int
 var beginColorIndexes = make(sort.IntSlice, 0, 20)
 var endColorIndexes = make(sort.IntSlice, 0, 20)
 
-type matchIndexSpan struct {
-	beginIndex int
-	endIndex   int
-}
-
-type matchIndexInfo struct {
-	matched      bool
-	minIndex     int
-	matchIndexes []matchIndexSpan
-}
-
-var currentLineMatchIndexInfo = matchIndexInfo{matchIndexes: make([]matchIndexSpan, 0, 20)}
-
 var outputFileBaseName string
 
 var contextColumnTruncationMark = stringToIntArray("...")
 var contextColumnBeginIndex int
 var contextColumnEndIndex int
-
-var fileNameIncludeFilters []string
-var fileNameExcludeFilters []string
-var dirNameIncludeFilters []string
-var dirNameExcludeFilters []string
-var searchStringRegexesToUse []*regexp.Regexp
-var searchStringRegexesToExclude []*regexp.Regexp
 
 var currentMatchesPhrase string
 var outputFormatString = outputFormatDefault
@@ -153,6 +124,7 @@ func performArgumentActions() {
 func performSearch() {
 	setupNoisyOutput()
 	prepareSearchString()
+	prepareReadableSearchString()
 	prepareStartingDir()
 	setupOutputFile()
 	setupContextLines()
@@ -172,55 +144,9 @@ func setupNoisyOutput() {
 	}
 }
 
-func prepareSearchString() {
+func prepareReadableSearchString() {
 	if optionListAll.value {
 		return
-	}
-
-	if len(nonOptionArguments) == 0 {
-		printDefaultMessage()
-		exit(1)
-	}
-
-	searchStringArgs = nonOptionArguments
-
-	// Handle duplicate search strings.
-	ss := make([]string, len(searchStringArgs))
-	if optionIgnoreCase.value {
-		for pos, s := range searchStringArgs {
-			ss[pos] = strings.ToLower(s)
-		}
-	} else {
-		copy(ss, searchStringArgs)
-	}
-
-	// Form array without duplicate strings and count of each string.
-	searchStringArgsToUse = make([]string, 0, len(ss))
-	searchStringArgsToUseCount = make([]int, 0, len(ss))
-
-	for i := 0; i < len(ss); i++ {
-		if ss[i] == "" {
-			continue
-		}
-		count := 1
-		for j := i + 1; j < len(ss); j++ {
-			if ss[j] == "" {
-				continue
-			}
-			if ss[i] == ss[j] {
-				count++
-				ss[j] = ""
-			}
-		}
-		searchStringArgsToUse = append(searchStringArgsToUse, ss[i])
-		searchStringArgsToUseCount = append(searchStringArgsToUseCount, count)
-	}
-
-	// Convert into integer array.
-	searchStringIntArrayToUse = make([][]int, len(searchStringArgsToUse))
-
-	for i := 0; i < len(searchStringArgsToUse); i++ {
-		searchStringIntArrayToUse[i] = stringToIntArray(searchStringArgsToUse[i])
 	}
 
 	// This string is for printing to output only.
@@ -228,22 +154,6 @@ func prepareSearchString() {
 		readableSearchString = "\"" + searchStringArgs[0] + "\""
 	} else {
 		readableSearchString = "\"" + strings.Join(searchStringArgs, "\" + \"") + "\""
-	}
-
-	// Exclude strings.
-	if optionExcludeStrings.value != "" {
-		searchStringArgsToExclude = splitAndTrim(optionExcludeStrings.value, ";")
-
-		if optionIgnoreCase.value {
-			for i := 0; i < len(searchStringArgsToExclude); i++ {
-				searchStringArgsToExclude[i] = strings.ToLower(searchStringArgsToExclude[i])
-			}
-		}
-
-		searchStringIntArrayToExclude = make([][]int, len(searchStringArgsToExclude))
-		for i := 0; i < len(searchStringArgsToExclude); i++ {
-			searchStringIntArrayToExclude[i] = stringToIntArray(searchStringArgsToExclude[i])
-		}
 	}
 }
 
@@ -342,78 +252,6 @@ func finalizeOutputFile() {
 			putln("Cannot execute external editor \"%v\": %v", optionEditor.value, err)
 		}
 	}
-}
-
-func splitAndTrim(str, delimiter string) []string {
-	a := strings.Split(str, delimiter)
-	array := make([]string, 0, len(a))
-	for i := 0; i < len(a); i++ {
-		a[i] = strings.TrimSpace(a[i])
-
-		// Remove empty strings.
-		if a[i] != "" {
-			array = append(array, a[i])
-		}
-	}
-	return array
-}
-
-func prepareNameIncludeExcludeFilters() {
-	if !hasAnyIncludeExcludeFilters() {
-		return
-	}
-
-	fileNameIncludeFilters = []string{}
-	fileNameExcludeFilters = []string{}
-	dirNameIncludeFilters = []string{}
-	dirNameExcludeFilters = []string{}
-
-	// Include files.
-	if optionIncludeFiles.value != "" {
-		fileNameIncludeFilters = append(fileNameIncludeFilters, splitAndTrim(optionIncludeFiles.value, ";")...)
-	}
-
-	if optionIncludeDirs.value != "" {
-		dirNameIncludeFilters = append(dirNameIncludeFilters, splitAndTrim(optionIncludeDirs.value, ";")...)
-	}
-
-	// Exclude files.
-	if optionExcludeFiles.value != "" {
-		fileNameExcludeFilters = append(fileNameExcludeFilters, splitAndTrim(optionExcludeFiles.value, ";")...)
-	}
-
-	if optionExcludeDirs.value != "" {
-		dirNameExcludeFilters = append(dirNameExcludeFilters, splitAndTrim(optionExcludeDirs.value, ";")...)
-	}
-}
-
-func prepareRegexMatching() {
-	if !optionRegex.value {
-		return
-	}
-
-	searchStringRegexesToUse = convertToRegexArray(searchStringArgsToUse)
-
-	if searchStringArgsToExclude != nil {
-		searchStringRegexesToExclude = convertToRegexArray(searchStringArgsToExclude)
-	}
-}
-
-func convertToRegexArray(array []string) []*regexp.Regexp {
-	regexes := make([]*regexp.Regexp, len(array))
-	for pos, expr := range array {
-		if optionWholeWord.value {
-			expr = `\b` + expr + `\b`
-		}
-
-		regex, err := regexp.Compile(expr)
-		if err != nil {
-			putln("Invalid regex given: \"%v\"", expr)
-			exit(1)
-		}
-		regexes[pos] = regex
-	}
-	return regexes
 }
 
 func prepareOutputFormat() {
@@ -615,7 +453,7 @@ func searchDir(dir string) {
 			}
 
 			if fileInfo.IsDir() {
-				if !shouldIncludeDir(fileInfo.Name()) {
+				if !shouldIncludeDirByNameFilters(fileInfo.Name()) {
 					continue
 				}
 			} else {
@@ -624,7 +462,7 @@ func searchDir(dir string) {
 					continue
 				}
 
-				if !shouldIncludeFile(fileInfo.Name()) {
+				if !shouldIncludeFileByNameFilters(fileInfo.Name()) {
 					continue
 				}
 			}
@@ -633,63 +471,12 @@ func searchDir(dir string) {
 	}
 }
 
-func hasAnyIncludeExcludeFilters() bool {
-	return optionIncludeFiles.value != "" ||
-		optionIncludeDirs.value != "" ||
-		optionExcludeFiles.value != "" ||
-		optionExcludeDirs.value != ""
-}
-
 func isLink(path string) bool {
 	fileInfo, err := os.Lstat(path)
 	if err != nil {
 		return true
 	}
 	return (fileInfo.Mode() & os.ModeSymlink) == os.ModeSymlink
-}
-
-func matchesAnyGlob(baseName string, globs []string) bool {
-	if len(globs) > 0 {
-		for _, glob := range globs {
-			matched, _ := filepath.Match(glob, baseName)
-			if matched {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func shouldIncludeFile(fileBaseName string) bool {
-	if matchesAnyGlob(fileBaseName, fileNameIncludeFilters) {
-		return true
-	}
-
-	if matchesAnyGlob(fileBaseName, fileNameExcludeFilters) {
-		return false
-	}
-
-	if len(fileNameIncludeFilters) > 0 {
-		return false
-	}
-
-	return true
-}
-
-func shouldIncludeDir(dirBaseName string) bool {
-	if matchesAnyGlob(dirBaseName, dirNameIncludeFilters) {
-		return true
-	}
-
-	if matchesAnyGlob(dirBaseName, dirNameExcludeFilters) {
-		return false
-	}
-
-	if len(dirNameIncludeFilters) > 0 {
-		return false
-	}
-
-	return true
 }
 
 func visitFileOrDir(path string, fileInfo os.FileInfo) {
@@ -726,7 +513,7 @@ func searchPathName(isDir bool) {
 	baseName := filepath.Base(currentFilePath)
 
 	// Check for match.
-	checkLineMatchFullInfo(baseName)
+	checkLineMatchFullInfo(baseName, &currentLineIntArray)
 
 	if currentLineMatchIndexInfo.matched == optionInvertMatch.value {
 		return
@@ -748,36 +535,6 @@ func searchPathName(isDir bool) {
 /**************************************************************************/
 
 // Searching within files.
-
-func isControlCharacter(char rune) bool {
-	return (char == 127) || (((0 <= char) && (char <= 31)) && (char != 9) && (char != 10) && (char != 13))
-}
-
-func hasControlCharacters(line string) bool {
-	for _, char := range line {
-		if isControlCharacter(char) {
-			return true
-		}
-	}
-	return false
-}
-
-func isNonWordChar(char rune) bool {
-	return unicode.IsControl(char) ||
-		unicode.IsMark(char) ||
-		unicode.IsPunct(char) ||
-		unicode.IsSpace(char) ||
-		unicode.IsSymbol(char)
-}
-
-func intArrayHasControlCharacters(array []int) bool {
-	for _, char := range array {
-		if isControlCharacter(rune(char)) {
-			return true
-		}
-	}
-	return false
-}
 
 func searchFileContents() {
 	// Open file for reading.
@@ -810,7 +567,23 @@ func searchFileContents() {
 
 	// Normal search through each line in the file.
 	for currentLineNumber = 1; ; currentLineNumber++ {
-		checkPrintLineMatch()
+		if isLineMatchingWithFullInfo(currentLineText, &currentLineIntArray) {
+			currentMatchCount++
+
+			// This optimization if-statement is to avoid initializing currentLineIntArray twice.
+			// A bit hard to understand, but cannot think of a better approach right now.
+			if needMatchDecorations() {
+				currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
+			} else if len(currentLineIntArray) == 0 {
+				currentLineIntArray = appendStringToIntArray(currentLineIntArray, currentLineText)
+			}
+
+			// Format matching line.
+			transformOutputLine()
+
+			// Output matching line.
+			writeFormattedOutputLine()
+		}
 		if !hasNextLineInFileOrCache() {
 			return
 		}
@@ -825,7 +598,7 @@ func searchFileContentsForFileNameOnly(firstLine string) {
 	numMatches := 0
 
 	for {
-		if isLineMatching(line) {
+		if isLineMatching(line, &currentLineIntArray) {
 			// We could have just stopped after the first match, but printing the
 			// total number of matches provides a better user experience.
 			numMatches++
@@ -854,275 +627,6 @@ func searchFileContentsForFileNameOnly(firstLine string) {
 	} else {
 		panic("Unknown output format for filename only")
 	}
-}
-
-/**************************************************************************/
-
-// Matching logic.
-
-func checkLineMatchFullInfo(line string) {
-	if line == "" {
-		return
-	}
-
-	if optionIgnoreCase.value {
-		line = strings.ToLower(line)
-	}
-
-	if optionRegex.value {
-		getMatchIndexesByRegexMatch(line)
-	} else {
-		currentLineIntArray = appendStringToIntArray(currentLineIntArray[:0], line)
-		getMatchIndexesByExactMatch(currentLineIntArray)
-	}
-}
-
-func isLineMatching(line string) bool {
-	if line == "" {
-		return false
-	}
-
-	if optionIgnoreCase.value {
-		line = strings.ToLower(line)
-	}
-
-	if optionRegex.value {
-		return isLineMatchingRegex(line)
-	}
-
-	currentLineIntArray = appendStringToIntArray(currentLineIntArray[:0], line)
-	return isLineMatchingIntArray(currentLineIntArray)
-}
-
-func checkPrintLineMatch() {
-	if currentLineText == "" {
-		return
-	}
-
-	// This might be initialized as an intended side effect of checkLineMatchFullInfo.
-	currentLineIntArray = currentLineIntArray[:0]
-
-	checkLineMatchFullInfo(currentLineText)
-
-	if currentLineMatchIndexInfo.matched == optionInvertMatch.value {
-		return
-	}
-
-	currentMatchCount++
-
-	// This optimization if-statement is to avoid initializing currentLineIntArray twice.
-	// A bit hard to understand, but cannot think of a better approach right now.
-	if needMatchDecorations() {
-		currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
-	} else if len(currentLineIntArray) == 0 {
-		currentLineIntArray = appendStringToIntArray(currentLineIntArray, currentLineText)
-	}
-
-	// Format matching line.
-	transformOutputLine()
-
-	// Output matching line.
-	writeFormattedOutputLine()
-}
-
-func resetCurrentLineMatchIndexInfo() {
-	// We still need to clear the match indexes when there are multiple search strings.
-	currentLineMatchIndexInfo.matched = false
-	currentLineMatchIndexInfo.minIndex = math.MaxInt32
-	currentLineMatchIndexInfo.matchIndexes = currentLineMatchIndexInfo.matchIndexes[:0]
-}
-
-func addMatchSpan(beginIndex, endIndex int) {
-	// Add match span.
-	currentLineMatchIndexInfo.matchIndexes = append(
-		currentLineMatchIndexInfo.matchIndexes,
-		matchIndexSpan{beginIndex: beginIndex, endIndex: endIndex})
-
-	// Maintain min and max.
-	if currentLineMatchIndexInfo.minIndex > beginIndex {
-		currentLineMatchIndexInfo.minIndex = beginIndex
-	}
-}
-
-// Case-sensitive matching only.
-func getMatchIndexesByRegexMatch(line string) {
-	resetCurrentLineMatchIndexInfo()
-
-	// Exclude if matches any.
-	if searchStringRegexesToExclude != nil {
-		for _, regex := range searchStringRegexesToExclude {
-			if regex.MatchString(line) {
-				return
-			}
-		}
-	}
-
-	// Include if matches all.
-	for _, regex := range searchStringRegexesToUse {
-		arrayOfIndexes := regex.FindAllStringIndex(line, -1)
-		if arrayOfIndexes == nil {
-			return
-		}
-		for _, indexes := range arrayOfIndexes {
-			addMatchSpan(indexes[0], indexes[1])
-		}
-	}
-
-	currentLineMatchIndexInfo.matched = true
-}
-
-func isLineMatchingRegex(line string) bool {
-	// Exclude if matches any.
-	if searchStringRegexesToExclude != nil {
-		for _, regex := range searchStringRegexesToExclude {
-			if regex.MatchString(line) {
-				return false
-			}
-		}
-	}
-
-	// Include if matches all.
-	for _, regex := range searchStringRegexesToUse {
-		if !regex.MatchString(line) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// Case-sensitive matching only.
-// This function takes an int array as argument so that we can check word boundary matches.
-// Using an int array also saves us from breaking down the string into runes multiple times.
-func getMatchIndexesByExactMatch(array []int) {
-	resetCurrentLineMatchIndexInfo()
-
-	if searchStringIntArrayToExclude != nil && isMatchingIntArray(array, searchStringIntArrayToExclude, true) {
-		return
-	}
-
-	for pos, searchStringIntArray := range searchStringIntArrayToUse {
-		stringStartIndex := 0
-		matchCount := 0
-		for {
-			beginIndex := intArrayIndexOf(array, searchStringIntArray, stringStartIndex)
-
-			// Match whole words only.
-			if beginIndex >= 0 {
-				if optionWholeWord.value {
-					if (beginIndex > 0) &&
-						(!isNonWordChar(rune(array[beginIndex])) &&
-							!isNonWordChar(rune(array[beginIndex-1]))) {
-						stringStartIndex = beginIndex + len(searchStringIntArray)
-						continue
-					} else {
-						endIndex := beginIndex + len(searchStringIntArray)
-						if (endIndex < len(array)) &&
-							(!isNonWordChar(rune(array[endIndex])) &&
-								!isNonWordChar(rune(array[endIndex-1]))) {
-							stringStartIndex = beginIndex + len(searchStringIntArray)
-							continue
-						}
-					}
-				}
-			}
-
-			if beginIndex < 0 {
-				// Match at least the given number of times.
-				if matchCount < searchStringArgsToUseCount[pos] {
-					// No need to remove from match span because it will not be used anyway.
-					return
-				}
-				break
-			}
-
-			endIndex := beginIndex + len(searchStringIntArray)
-			addMatchSpan(beginIndex, endIndex)
-			matchCount++
-
-			if endIndex >= len(array) {
-				// Match at least the given number of times.
-				if matchCount < searchStringArgsToUseCount[pos] {
-					// No need to remove from match span because it will not be used anyway.
-					return
-				}
-				break
-			}
-			stringStartIndex = endIndex
-		}
-	}
-
-	currentLineMatchIndexInfo.matched = true
-}
-
-func isLineMatchingIntArray(array []int) bool {
-	if searchStringIntArrayToExclude != nil && isMatchingIntArray(array, searchStringIntArrayToExclude, true) {
-		return false
-	}
-	return isMatchingIntArray(array, searchStringIntArrayToUse, false)
-}
-
-func isMatchingIntArray(array []int, toFindArray [][]int, matchAny bool) bool {
-	for _, searchStringIntArray := range toFindArray {
-		stringStartIndex := 0
-		for {
-			beginIndex := intArrayIndexOf(array, searchStringIntArray, stringStartIndex)
-
-			// Match whole words only.
-			if beginIndex >= 0 {
-				if optionWholeWord.value {
-					if (beginIndex > 0) &&
-						(!isNonWordChar(rune(array[beginIndex])) &&
-							!isNonWordChar(rune(array[beginIndex-1]))) {
-						if matchAny {
-							return true
-						}
-						stringStartIndex = beginIndex + len(searchStringIntArray)
-						continue
-					} else {
-						endIndex := beginIndex + len(searchStringIntArray)
-						if (endIndex < len(array)) &&
-							(!isNonWordChar(rune(array[endIndex])) &&
-								!isNonWordChar(rune(array[endIndex-1]))) {
-							stringStartIndex = beginIndex + len(searchStringIntArray)
-							if matchAny {
-								return true
-							}
-							continue
-						}
-					}
-				}
-				if matchAny {
-					return true
-				}
-				break
-			} else {
-				if matchAny {
-					break
-				}
-				return false
-			}
-		}
-	}
-
-	if matchAny {
-		return false
-	}
-	return true
-}
-
-func intArrayIndexOf(toSearch, toFind []int, startIndex int) int {
-	endIndex := len(toSearch) - len(toFind) + 1
-Outer:
-	for i := startIndex; i < endIndex; i++ {
-		for j := 0; j < len(toFind); j++ {
-			if toSearch[i+j] != toFind[j] {
-				continue Outer
-			}
-		}
-		return i
-	}
-	return -1
 }
 
 /**************************************************************************/
