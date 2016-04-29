@@ -68,8 +68,8 @@ var currentFilePath string
 var currentLineNumber int
 var currentLineText string
 var currentLineIntArray = make([]int, 0, 1000)
-var contextLineIntArray []int
-var matchingLineIntArray []int
+var contextLineIntArrayTempBuffer []int
+var matchingLineIntArrayTempBuffer []int
 var beginColorIndexes = make(sort.IntSlice, 0, 20)
 var endColorIndexes = make(sort.IntSlice, 0, 20)
 
@@ -92,19 +92,6 @@ var contextColumnTruncationMark = stringToIntArray("...")
 var contextColumnBeginIndex int
 var contextColumnEndIndex int
 
-type contextLines struct {
-	startIndex int
-	lines      []contextLine
-}
-
-type contextLine struct {
-	lineAsString        string
-	lineAsStringIsValid bool
-}
-
-var preContextLines contextLines
-var postContextLines contextLines
-
 var fileNameIncludeFilters []string
 var fileNameExcludeFilters []string
 var dirNameIncludeFilters []string
@@ -115,7 +102,6 @@ var searchStringRegexesToExclude []*regexp.Regexp
 var currentMatchesPhrase string
 var outputFormatString = outputFormatDefault
 var outputFormatFuncArray []func()
-var currentFileScanner *bufio.Scanner
 
 /**************************************************************************/
 
@@ -170,6 +156,7 @@ func performSearch() {
 	prepareStartingDir()
 	setupOutputFile()
 	setupContextLines()
+	setupContextLineTempBuffer()
 	prepareNameIncludeExcludeFilters()
 	prepareRegexMatching()
 	prepareOutputFormat()
@@ -327,6 +314,15 @@ func setupOutputFile() {
 	outputFileInfo = fileInfo
 }
 
+func setupContextLineTempBuffer() {
+	if optionContextLines.value == 0 {
+		return
+	}
+
+	contextLineIntArrayTempBuffer = make([]int, 0, 1000)
+	matchingLineIntArrayTempBuffer = make([]int, 0, 1000)
+}
+
 func finalizeOutputFile() {
 	if outputFileHandle != nil {
 		flush()
@@ -346,27 +342,6 @@ func finalizeOutputFile() {
 			putln("Cannot execute external editor \"%v\": %v", optionEditor.value, err)
 		}
 	}
-}
-
-func setupContextLines() {
-	if optionContextLines.value == 0 {
-		return
-	}
-
-	preContextLines = createContextLines(optionContextLines.value)
-	postContextLines = createContextLines(optionContextLines.value)
-
-	contextLineIntArray = make([]int, 0, 1000)
-	matchingLineIntArray = make([]int, 0, 1000)
-}
-
-func createContextLines(numLines int) contextLines {
-	newContextLines := contextLines{
-		startIndex: 0,
-		lines:      make([]contextLine, numLines),
-	}
-
-	return newContextLines
 }
 
 func splitAndTrim(str, delimiter string) []string {
@@ -813,7 +788,8 @@ func searchFileContents() {
 		return
 	}
 	defer fileHandle.Close()
-	currentFileScanner = bufio.NewScanner(fileHandle)
+
+	setFileForScanning(fileHandle)
 
 	// If file is empty, return.
 	if !hasNextLineInFileOrCache() {
@@ -838,7 +814,7 @@ func searchFileContents() {
 		if !hasNextLineInFileOrCache() {
 			return
 		}
-		pushToPreContextLines()
+		pushToPreContextLines(currentLineText)
 		currentLineText = getNextLineFromFileOrCache()
 	}
 }
@@ -877,93 +853,6 @@ func searchFileContentsForFileNameOnly(firstLine string) {
 		putln("%10d : %v", numMatches, currentFilePath)
 	} else {
 		panic("Unknown output format for filename only")
-	}
-}
-
-/**************************************************************************/
-
-// Reading lines and maintaining context lines.
-
-// This function will read one line whenever it gets called.
-func hasNextLineInFile() bool {
-	return currentFileScanner.Scan()
-}
-
-func getNextLineFromFile() string {
-	line := currentFileScanner.Text()
-	numBytesRead += int64(len(line))
-	return line
-}
-
-func addToContextLineIndex(index, delta int) int {
-	index += delta
-	if index < 0 {
-		index += optionContextLines.value
-	} else if index >= optionContextLines.value {
-		index -= optionContextLines.value
-	}
-	return index
-}
-
-// Check context lines.
-func hasNextLineInFileOrCache() bool {
-	if optionContextLines.value == 0 {
-		return hasNextLineInFile()
-	}
-
-	if postContextLines.lines[postContextLines.startIndex].lineAsStringIsValid {
-		return true
-	}
-
-	return hasNextLineInFile()
-}
-
-// Maintain context lines.
-func getNextLineFromFileOrCache() string {
-	if optionContextLines.value == 0 {
-		return getNextLineFromFile()
-	}
-
-	// Read from post context lines.
-	if postContextLines.lines[postContextLines.startIndex].lineAsStringIsValid {
-		postContextLines.lines[postContextLines.startIndex].lineAsStringIsValid = false
-		line := postContextLines.lines[postContextLines.startIndex].lineAsString
-		postContextLines.startIndex = addToContextLineIndex(postContextLines.startIndex, 1)
-		return line
-	}
-
-	return getNextLineFromFile()
-}
-
-func pushToPreContextLines() {
-	if optionContextLines.value == 0 {
-		return
-	}
-	preContextLines.startIndex = addToContextLineIndex(preContextLines.startIndex, 1)
-	preContextLines.lines[preContextLines.startIndex].lineAsStringIsValid = true
-	preContextLines.lines[preContextLines.startIndex].lineAsString = currentLineText
-}
-
-func fillPostContextLines() {
-	if optionContextLines.value == 0 {
-		return
-	}
-
-	i := postContextLines.startIndex
-	for {
-		if !postContextLines.lines[i].lineAsStringIsValid {
-			if !hasNextLineInFile() {
-				break
-			}
-
-			postContextLines.lines[i].lineAsString = getNextLineFromFile()
-			postContextLines.lines[i].lineAsStringIsValid = true
-		}
-
-		i = addToContextLineIndex(i, 1)
-		if i == postContextLines.startIndex {
-			break
-		}
 	}
 }
 
@@ -1344,24 +1233,22 @@ func transformOutputLine() {
 	}
 
 	// Save the original line to be used later.
-	matchingLineIntArray = append(matchingLineIntArray[:0], currentLineIntArray...)
+	matchingLineIntArrayTempBuffer = append(matchingLineIntArrayTempBuffer[:0], currentLineIntArray...)
 	currentLineIntArray = currentLineIntArray[:0]
 
 	// Add pre-context lines.
 	for i := optionContextLines.value - 1; i >= 0; i-- {
-		index := addToContextLineIndex(preContextLines.startIndex, -i)
-		if preContextLines.lines[index].lineAsStringIsValid {
+		contextLine := getContextLineByDelta(-i - 1)
+		if contextLine.lineAsStringIsValid {
 			j := i + 1
 			currentLineIntArray = appendStringToIntArray(
 				currentLineIntArray,
 				fmt.Sprintf("%v:-%v: ", currentLineNumber-j, j))
 
-			contextLineIntArray = appendStringToIntArray(
-				contextLineIntArray[:0],
-				preContextLines.lines[index].lineAsString)
-			contextLineIntArray = transformSingleOutputLine(contextLineIntArray, false)
+			contextLineIntArrayTempBuffer = appendStringToIntArray(contextLineIntArrayTempBuffer[:0], contextLine.lineAsString)
+			contextLineIntArrayTempBuffer = transformSingleOutputLine(contextLineIntArrayTempBuffer, false)
 
-			currentLineIntArray = append(currentLineIntArray, contextLineIntArray...)
+			currentLineIntArray = append(currentLineIntArray, contextLineIntArrayTempBuffer...)
 			currentLineIntArray = appendStringToIntArray(currentLineIntArray, osNewLine)
 		}
 	}
@@ -1370,7 +1257,7 @@ func transformOutputLine() {
 	currentLineIntArray = appendStringToIntArray(
 		currentLineIntArray,
 		fmt.Sprintf("%v: 0: ", currentLineNumber))
-	currentLineIntArray = append(currentLineIntArray, matchingLineIntArray...)
+	currentLineIntArray = append(currentLineIntArray, matchingLineIntArrayTempBuffer...)
 	currentLineIntArray = appendStringToIntArray(currentLineIntArray, osNewLine)
 
 	// Pre-read post-context lines from the file if needed.
@@ -1378,8 +1265,8 @@ func transformOutputLine() {
 
 	// Add post-context lines.
 	for i := 0; i < optionContextLines.value; i++ {
-		index := addToContextLineIndex(postContextLines.startIndex, i)
-		if !postContextLines.lines[index].lineAsStringIsValid {
+		contextLine := getContextLineByDelta(i + 1)
+		if !contextLine.lineAsStringIsValid {
 			break
 		}
 		j := i + 1
@@ -1387,12 +1274,10 @@ func transformOutputLine() {
 			currentLineIntArray,
 			fmt.Sprintf("%v:+%v: ", currentLineNumber+j, j))
 
-		contextLineIntArray = appendStringToIntArray(
-			contextLineIntArray[:0],
-			postContextLines.lines[i].lineAsString)
-		contextLineIntArray = transformSingleOutputLine(contextLineIntArray, false)
+		contextLineIntArrayTempBuffer = appendStringToIntArray(contextLineIntArrayTempBuffer[:0], contextLine.lineAsString)
+		contextLineIntArrayTempBuffer = transformSingleOutputLine(contextLineIntArrayTempBuffer, false)
 
-		currentLineIntArray = append(currentLineIntArray, contextLineIntArray...)
+		currentLineIntArray = append(currentLineIntArray, contextLineIntArrayTempBuffer...)
 		currentLineIntArray = appendStringToIntArray(currentLineIntArray, osNewLine)
 	}
 }
