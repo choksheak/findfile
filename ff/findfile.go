@@ -409,15 +409,20 @@ func searchPathName(isDir bool) {
 
 	currentMatchCount++
 
-	// Format output.
-	fileOrDir := selectString(isDir, "dir", "file")
-
-	currentLineNumber = 0
-	currentLineMatchIndexInfo.minIndex = -1
-	currentLineText = fmt.Sprintf("%v - %v name %v", baseName, fileOrDir, currentMatchesPhrase)
-	currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
-
-	writeFormattedOutputLine()
+	// Print result.
+	if optionFormat3ShowFileNamesOnly.value {
+		puts(currentFilePath)
+		putBlankLine()
+	} else if optionFormat2ShowFileNamesAndCounts.value {
+		putln("  - : %v", currentFilePath)
+	} else {
+		currentLineNumber = 0
+		currentLineMatchIndexInfo.minIndex = -1
+		fileOrDir := selectString(isDir, "dir", "file")
+		currentLineText = fmt.Sprintf("%v - %v name %v", baseName, fileOrDir, currentMatchesPhrase)
+		currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
+		writeFormattedOutputLine()
+	}
 }
 
 /**************************************************************************/
