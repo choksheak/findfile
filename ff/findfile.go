@@ -27,12 +27,12 @@ package main
 import (
 	"bufio"
 	"container/list"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -385,7 +385,15 @@ func visitFileOrDir(path string, fileInfo os.FileInfo) {
 	}
 
 	if !optionSearchContentsOnly.value {
-		searchPathName(isDir)
+		matched := searchPathName(isDir)
+
+		// Don't double-print the same filename.
+		// The side effect of this is that once the dir or file name matches,
+		// we will not show the match count within the file content:
+		// e.g. ff -2 txt
+		if showFileNamesOnly && matched {
+			return
+		}
 	}
 
 	if !isDir && !optionSearchNamesOnly.value {
@@ -397,32 +405,21 @@ func visitFileOrDir(path string, fileInfo os.FileInfo) {
 
 // Searching file and dir names.
 
-func searchPathName(isDir bool) {
+func searchPathName(isDir bool) bool {
 	baseName := filepath.Base(currentFilePath)
 
 	// Check for match.
 	checkLineMatchFullInfo(baseName, &currentLineIntArray)
 
 	if currentLineMatchIndexInfo.matched == optionInvertMatch.value {
-		return
+		return false
 	}
 
 	currentMatchCount++
 
 	// Print result.
-	if optionFormat3ShowFileNamesOnly.value {
-		puts(currentFilePath)
-		putBlankLine()
-	} else if optionFormat2ShowFileNamesAndCounts.value {
-		putln("  - : %v", currentFilePath)
-	} else {
-		currentLineNumber = 0
-		currentLineMatchIndexInfo.minIndex = -1
-		fileOrDir := selectString(isDir, "dir", "file")
-		currentLineText = fmt.Sprintf("%v - %v name %v", baseName, fileOrDir, currentMatchesPhrase)
-		currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
-		writeFormattedOutputLine()
-	}
+	writePathNameOutputLine(baseName, "(skip content)", isDir)
+	return true
 }
 
 /**************************************************************************/
@@ -512,14 +509,7 @@ func searchFileContentsForFileNameOnly(firstLine string) {
 	currentMatchCount += numMatches
 
 	// Print result.
-	if optionFormat3ShowFileNamesOnly.value {
-		puts(currentFilePath)
-		putBlankLine()
-	} else if optionFormat2ShowFileNamesAndCounts.value {
-		putln("%10d : %v", numMatches, currentFilePath)
-	} else {
-		panic("Unknown output format for filename only")
-	}
+	writePathNameOutputLine("", strconv.Itoa(numMatches), false)
 }
 
 /**************************************************************************/

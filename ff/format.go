@@ -160,6 +160,25 @@ func writeFormattedOutputLine() {
 	flush()
 }
 
+func writePathNameOutputLine(baseName, numMatchesAsString string, isDir bool) {
+	if optionFormat3ShowFileNamesOnly.value {
+		puts(currentFilePath)
+		putBlankLine()
+	} else if optionFormat2ShowFileNamesAndCounts.value {
+		putln("%15v : %v", numMatchesAsString, currentFilePath)
+	} else {
+		if baseName == "" {
+			panic("Impossible case in show filename only condition")
+		}
+		currentLineNumber = 0
+		currentLineMatchIndexInfo.minIndex = -1
+		fileOrDir := selectString(isDir, "dir", "file")
+		line := fmt.Sprintf("%v - %v name %v", baseName, fileOrDir, currentMatchesPhrase)
+		currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], line)
+		writeFormattedOutputLine()
+	}
+}
+
 /**************************************************************************/
 
 // Output coloring.
