@@ -234,6 +234,12 @@ var (
 	optionQuiet = newBoolOption(optionCategoryOutputDisplay,
 		"quiet", "-q|--quiet",
 		"turn off supporting messages", false)
+	optionFirstResult = newIntOption(optionCategoryOutputDisplay,
+		"first-result", "-FR|--first-result=[1:"+strconv.Itoa(math.MaxInt32)+"]",
+		"start returning results from the Nth result; default is 1 to start from the first result", 1)
+	optionMaxResults = newIntOption(optionCategoryOutputDisplay,
+		"max-results", "-MR|--max-results=[0:"+strconv.Itoa(math.MaxInt32)+"]",
+		"return up to the given maximum number of results; default is 0 to show all results", 0)
 	optionFormat0ShowLinesOnly = newBoolOption(optionCategoryOutputDisplay,
 		"format0", "-0|--format0|--show-lines-only",
 		"print matching lines only, without any other decoration: \""+outputFormat0+"\"", false)

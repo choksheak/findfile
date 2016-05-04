@@ -28,6 +28,7 @@ import (
 	"bufio"
 	"container/list"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -42,21 +43,26 @@ import (
 
 // Global variables used during search.
 
-var writeNoisyOutput = func(format string, a ...interface{}) {}
-var readableSearchString string
-var searchStartTime time.Time
-var numDirsRead int64
-var numFilesRead int64
-var numBytesRead int64
-var outputFileHandle *os.File
-var outputFileWriter *bufio.Writer
-var outputFileInfo os.FileInfo
-var currentFilePath string
-var currentLineText string
-var contextLineIntArrayTempBuffer []int
-var matchingLineIntArrayTempBuffer []int
-var outputFileBaseName string
-var currentMatchesPhrase string
+var (
+	writeNoisyOutput               = func(format string, a ...interface{}) {}
+	readableSearchString           string
+	searchStartTime                time.Time
+	numDirsRead                    int64
+	numFilesRead                   int64
+	numBytesRead                   int64
+	outputFileHandle               *os.File
+	outputFileWriter               *bufio.Writer
+	outputFileInfo                 os.FileInfo
+	currentFilePath                string
+	currentLineText                string
+	contextLineIntArrayTempBuffer  []int
+	matchingLineIntArrayTempBuffer []int
+	outputFileBaseName             string
+	currentMatchesPhrase           string
+	currentNumResults              int
+	lastResultNumberToInclude      int
+	finishSearching                bool
+)
 
 /**************************************************************************/
 
@@ -116,6 +122,7 @@ func performSearch() {
 	prepareNameIncludeExcludeFilters()
 	prepareRegexMatching()
 	prepareOutputFormat()
+	setupResultsPagination()
 	startTiming()
 	startSearching()
 	printTiming()
@@ -238,6 +245,14 @@ func finalizeOutputFile() {
 	}
 }
 
+func setupResultsPagination() {
+	if optionMaxResults.value == 0 {
+		lastResultNumberToInclude = math.MaxInt32
+	} else {
+		lastResultNumberToInclude = optionFirstResult.value + optionMaxResults.value - 1
+	}
+}
+
 func startTiming() {
 	if optionMeasureStats.value {
 		searchStartTime = time.Now()
@@ -306,7 +321,7 @@ func searchDir(dir string) {
 	}
 	traverseList.PushBack(fileOrDirWithDepth{fileInfo: startingDirInfo, depth: -1, path: dir})
 
-	for traverseList.Len() > 0 {
+	for (traverseList.Len() > 0) && !finishSearching {
 		element := traverseList.Back()
 		traverseList.Remove(element)
 		node := element.Value.(fileOrDirWithDepth)
@@ -416,9 +431,15 @@ func searchPathName(isDir bool) bool {
 	}
 
 	currentMatchCount++
+	currentNumResults++
 
 	// Print result.
-	writePathNameOutputLine(baseName, "(skip content)", isDir)
+	if currentNumResults >= optionFirstResult.value {
+		writePathNameOutputLine(baseName, "(skip content)", isDir)
+		if currentNumResults >= lastResultNumberToInclude {
+			finishSearching = true
+		}
+	}
 	return true
 }
 
@@ -459,20 +480,30 @@ func searchFileContents() {
 	for currentLineNumber = 1; ; currentLineNumber++ {
 		if isLineMatchingWithFullInfo(currentLineText, &currentLineIntArray) {
 			currentMatchCount++
+			currentNumResults++
 
-			// This optimization if-statement is to avoid initializing currentLineIntArray twice.
-			// A bit hard to understand, but cannot think of a better approach right now.
-			if needMatchDecorations {
-				currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
-			} else if len(currentLineIntArray) == 0 {
-				currentLineIntArray = appendStringToIntArray(currentLineIntArray, currentLineText)
+			if currentNumResults >= optionFirstResult.value {
+
+				// This optimization if-statement is to avoid initializing currentLineIntArray twice.
+				// A bit hard to understand, but cannot think of a better approach right now.
+				if needMatchDecorations {
+					currentLineIntArray = insertMatchDecorations(currentLineIntArray[:0], currentLineText)
+				} else if len(currentLineIntArray) == 0 {
+					currentLineIntArray = appendStringToIntArray(currentLineIntArray, currentLineText)
+				}
+
+				// Format matching line.
+				transformOutputLine()
+
+				// Output matching line.
+				writeFormattedOutputLine()
+
+				// If we already reached max results, then stop searching.
+				if currentNumResults >= lastResultNumberToInclude {
+					finishSearching = true
+					return
+				}
 			}
-
-			// Format matching line.
-			transformOutputLine()
-
-			// Output matching line.
-			writeFormattedOutputLine()
 		}
 		if !hasNextLineInFileOrCache() {
 			return
@@ -507,9 +538,15 @@ func searchFileContentsForFileNameOnly(firstLine string) {
 		return
 	}
 	currentMatchCount += numMatches
+	currentNumResults++
 
 	// Print result.
-	writePathNameOutputLine("", strconv.Itoa(numMatches), false)
+	if currentNumResults >= optionFirstResult.value {
+		writePathNameOutputLine("", strconv.Itoa(numMatches), false)
+		if currentNumResults >= lastResultNumberToInclude {
+			finishSearching = true
+		}
+	}
 }
 
 /**************************************************************************/
