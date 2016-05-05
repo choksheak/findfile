@@ -59,6 +59,7 @@ func pushColoring(color *color.Color) {
 		flush()
 		color.Set()
 	}
+	//putln("[Push %#v to %v]", color, colorNestLevel)
 }
 
 func popColoring() {
@@ -70,6 +71,7 @@ func popColoring() {
 		flush()
 		color.Unset()
 	}
+	//putln("[Pop color to %v]", colorNestLevel)
 }
 
 func resetColoring() {

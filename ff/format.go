@@ -238,8 +238,9 @@ func insertMatchDecorations(array []int, line string) []int {
 	}
 
 	// Terminate the color.
-	if e < numMatches {
+	for e < b {
 		array = appendMatchDecorationsEnd(array)
+		e++
 	}
 
 	return array
@@ -344,6 +345,10 @@ func transformSingleOutputLine(line []int, needCalculateContextColumns bool) []i
 	}
 
 	line = truncateToContextColumns(line)
+
+	// Debug.
+	//putln(intArrayToDebugString(line))
+
 	return line
 }
 
