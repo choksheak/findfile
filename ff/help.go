@@ -48,13 +48,11 @@ const (
 
 func printDefaultMessage() {
 	putln("USAGE: %v", oneLinerUsage)
-	putln("(Use option \"%v\" for short help, or \"%v\" for long help)",
-		optionHelp.getDefinition().flags,
-		optionInfo.getDefinition().flags)
+	putln("(Use option \"%v\" for short help, or \"%v\" for long help)", optionHelp.flags, optionInfo.flags)
 }
 
 func printHelp() {
-	commonlyUsedOptions := []interface{}{
+	commonlyUsedOptions := []anyOption{
 		optionHelp,
 		optionDir,
 		optionSearchNamesOnly,
@@ -85,8 +83,8 @@ func printHelp() {
 	printNeatColumns(commonlyUsedFlags, 3, 2)
 	putBlankLine()
 
-	putln("Use \"%v %v\" to see the list of all options.", programName, optionListOptions.getDefinition().flags)
-	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.getDefinition().flags)
+	putln("Use \"%v %v\" to see the list of all options.", programName, optionListOptions.flags)
+	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.flags)
 	putBlankLine()
 }
 
@@ -102,16 +100,16 @@ func printListOfOptions() {
 	printNeatColumns(allFlags, 3, 2)
 	putBlankLine()
 
-	putln("Use \"%v %v\" to see a list of commonly-used options only.", programName, optionHelp.getDefinition().flags)
-	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.getDefinition().flags)
+	putln("Use \"%v %v\" to see a list of commonly-used options only.", programName, optionHelp.flags)
+	putln("Use \"%v %v\" to see all options and detailed help text.", programName, optionInfo.flags)
 	putBlankLine()
 }
 
-func optionsToFlagsArray(options []interface{}) [][]string {
+func optionsToFlagsArray(options []anyOption) [][]string {
 	flagsArray := make([][]string, len(options))
-	for pos, opt := range options {
-		option := asOption(opt)
-		flags := option.getDefinition().flags
+	for pos, option := range options {
+		base := option.getBaseOption()
+		flags := base.flags
 		flags = strings.Replace(flags, "=", "|=", -1)
 		flagsArray[pos] = strings.Split(flags, "|")
 	}
@@ -194,15 +192,14 @@ Option rules:
 
 		buffer.WriteString(dlOpen)
 
-		for _, opt := range optionsList {
-			option := asOption(opt)
-			def := option.getDefinition()
+		for _, option := range optionsList {
+			base := option.getBaseOption()
 
-			if def.category != optionCategory {
+			if base.category != optionCategory {
 				continue
 			}
 
-			flags := strings.Split(def.flags, "|")
+			flags := strings.Split(base.flags, "|")
 			buffer.WriteString("\n ")
 			buffer.WriteString(dtOpen)
 
@@ -221,7 +218,7 @@ Option rules:
 			buffer.WriteString("\n ")
 			buffer.WriteString(ddIndent)
 			buffer.WriteString(ddOpen)
-			buffer.WriteString(def.description)
+			buffer.WriteString(base.description)
 			buffer.WriteString(ddClose)
 			buffer.WriteRune('\n')
 		}
@@ -256,7 +253,7 @@ Environment variables:
  ` + ddIndent + ddOpen + `list of options to use, can be overridden from command line` + ddClose + `
 
  ` + dtOpen + editorEnvVar + dtClose + `
- ` + ddIndent + ddOpen + `used as default editor when ` + optionEditor.getDefinition().flags + ` is not specified` + ddClose + `
+ ` + ddIndent + ddOpen + `used as default editor when ` + optionEditor.flags + ` is not specified` + ddClose + `
 ` + dlClose + `
 Config file:
 

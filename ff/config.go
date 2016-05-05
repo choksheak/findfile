@@ -62,7 +62,7 @@ func setConfigOptions(options string) {
 	}
 
 	// Validate for disallowed options.
-	checkForUnrecognizedOptions(newOptionStrings, "option value of "+optionSetConfig.getDefinition().flags)
+	checkForUnrecognizedOptions(newOptionStrings, "option value of "+optionSetConfig.flags)
 	checkForDisallowedConfigOptions(newOptionStrings, "config file")
 
 	// Read options from config file.
@@ -78,24 +78,24 @@ func setConfigOptions(options string) {
 	isChanged := false
 
 	for _, newOptionString := range newOptionStrings {
-		newOption := getOptionByFlag(newOptionString)
-		newDef := newOption.getDefinition()
-		oldOptionString := mergedOptionsMap[newDef.name]
+		newOption := tryGetOptionByFlag(newOptionString)
+		newBase := newOption.getBaseOption()
+		oldOptionString := mergedOptionsMap[newBase.name]
 
 		if oldOptionString == "" {
-			putln("Adding new option: %v (%v)", newOptionString, newDef.flags)
-			mergedOptionsMap[newDef.name] = newOptionString
+			putln("Adding new option: %v (%v)", newOptionString, newBase.flags)
+			mergedOptionsMap[newBase.name] = newOptionString
 			isChanged = true
 		} else if oldOptionString == newOptionString {
 			putln("Option already exists: %v (%v)",
 				oldOptionString,
-				newDef.flags)
+				newBase.flags)
 		} else {
 			putln("Replacing existing option %v with %v (%v)",
 				oldOptionString,
 				newOptionString,
-				newDef.flags)
-			mergedOptionsMap[newDef.name] = newOptionString
+				newBase.flags)
+			mergedOptionsMap[newBase.name] = newOptionString
 			isChanged = true
 		}
 	}
@@ -124,7 +124,7 @@ func unsetConfigOptions(options string) {
 
 	// Parse input string as options list.
 	newOptionStrings := splitArgumentsString(options, "command line")
-	checkForUnrecognizedOptions(newOptionStrings, "option value of "+optionUnsetConfig.getDefinition().flags)
+	checkForUnrecognizedOptions(newOptionStrings, "option value of "+optionUnsetConfig.flags)
 	checkForDisallowedConfigOptions(newOptionStrings, "config file")
 
 	// Info.
@@ -137,15 +137,15 @@ func unsetConfigOptions(options string) {
 	isChanged := false
 
 	for _, newOptionString := range newOptionStrings {
-		newOption := getOptionByFlag(newOptionString)
-		newDef := newOption.getDefinition()
-		oldOptionString := mergedOptionsMap[newDef.name]
+		newOption := tryGetOptionByFlag(newOptionString)
+		newBase := newOption.getBaseOption()
+		oldOptionString := mergedOptionsMap[newBase.name]
 
 		if oldOptionString == "" {
-			putln("Ignoring option: %v (%v)", newOptionString, newDef.flags)
+			putln("Ignoring option: %v (%v)", newOptionString, newBase.flags)
 		} else {
-			putln("Removing existing option: %v (%v)", oldOptionString, newDef.flags)
-			delete(mergedOptionsMap, newDef.name)
+			putln("Removing existing option: %v (%v)", oldOptionString, newBase.flags)
+			delete(mergedOptionsMap, newBase.name)
 			isChanged = true
 		}
 	}
@@ -164,12 +164,12 @@ func readConfigFileOptionsMap() map[string]string {
 	mergedOptionsMap := make(map[string]string)
 
 	for _, oldOptionString := range rawOldOptionStrings {
-		oldOption := getOptionByFlag(oldOptionString)
+		oldOption := tryGetOptionByFlag(oldOptionString)
 		if oldOption == nil {
 			putln("Removing unknown option %v in the config file %v.", oldOptionString, configFilePath)
 			continue
 		}
-		mergedOptionsMap[oldOption.getDefinition().name] = oldOptionString
+		mergedOptionsMap[oldOption.getBaseOption().name] = oldOptionString
 	}
 
 	return mergedOptionsMap

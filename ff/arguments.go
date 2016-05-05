@@ -76,28 +76,22 @@ func newOptionCategory(categoryName, additionalInfo string) optionCategory {
 
 // Option definitions.
 
-type option interface {
-	getDefinition() optionDefinition
-}
-
-type optionDefinition struct {
-	category      optionCategory
-	name          string
-	flags         string
-	description   string
-	valueTypeName string
+type baseOption struct {
+	category    optionCategory
+	name        string
+	flags       string
+	description string
+	isGiven     bool
 }
 
 type boolOption struct {
-	definition   optionDefinition
-	isGiven      bool
+	baseOption
 	defaultValue bool
 	value        bool
 }
 
 type intOption struct {
-	definition   optionDefinition
-	isGiven      bool
+	baseOption
 	defaultValue int
 	value        int
 	minValue     int
@@ -105,22 +99,26 @@ type intOption struct {
 }
 
 type stringOption struct {
-	definition   optionDefinition
+	baseOption
 	isGiven      bool
 	defaultValue string
 	value        string
 }
 
-func (d boolOption) getDefinition() optionDefinition {
-	return d.definition
+type anyOption interface {
+	getBaseOption() *baseOption
 }
 
-func (d intOption) getDefinition() optionDefinition {
-	return d.definition
+func (o *boolOption) getBaseOption() *baseOption {
+	return &o.baseOption
 }
 
-func (d stringOption) getDefinition() optionDefinition {
-	return d.definition
+func (o *intOption) getBaseOption() *baseOption {
+	return &o.baseOption
+}
+
+func (o *stringOption) getBaseOption() *baseOption {
+	return &o.baseOption
 }
 
 /**************************************************************************/
@@ -284,33 +282,40 @@ var (
 
 // These options cannot be specified within config data.
 var disallowedConfigOptions = map[string]bool{
-	optionHelp.getDefinition().name:        true,
-	optionListOptions.getDefinition().name: true,
-	optionInfo.getDefinition().name:        true,
-	optionMarkDown.getDefinition().name:    true,
-	optionVersion.getDefinition().name:     true,
-	optionSetConfig.getDefinition().name:   true,
-	optionUnsetConfig.getDefinition().name: true,
-	optionListConfig.getDefinition().name:  true,
+	optionHelp.name:        true,
+	optionListOptions.name: true,
+	optionInfo.name:        true,
+	optionMarkDown.name:    true,
+	optionVersion.name:     true,
+	optionSetConfig.name:   true,
+	optionUnsetConfig.name: true,
+	optionListConfig.name:  true,
 }
 
 // List of all options.
-var optionsList = make([]interface{}, 0, 50)
+var optionsList = make([]anyOption, 0, 50)
 
 /**************************************************************************/
 
 // Construct options.
 
 func newBoolOption(category optionCategory, name, flags, description string, defaultValue bool) *boolOption {
-	newDefinition := optionDefinition{category, name, flags, description, "bool"}
-	newOption := boolOption{definition: newDefinition, defaultValue: defaultValue, value: defaultValue}
+	newOption := boolOption{
+		baseOption: baseOption{
+			category:    category,
+			name:        name,
+			flags:       flags,
+			description: description,
+			isGiven:     false,
+		},
+		defaultValue: defaultValue,
+		value:        defaultValue,
+	}
 	optionsList = append(optionsList, &newOption)
 	return &newOption
 }
 
 func newIntOption(category optionCategory, name, flags, description string, defaultValue int) *intOption {
-	newDefinition := optionDefinition{category, name, flags, description, "int"}
-
 	// Get range.
 	_, value := splitOptionFlagAndValue(flags)
 	minMax := strings.Split(value[1:len(value)-1], ":")
@@ -325,8 +330,20 @@ func newIntOption(category optionCategory, name, flags, description string, defa
 		panic("Bad min max range: " + flags)
 	}
 
-	newOption := intOption{definition: newDefinition, defaultValue: defaultValue,
-		value: defaultValue, minValue: min, maxValue: max}
+	newOption := intOption{
+		baseOption: baseOption{
+			category:    category,
+			name:        name,
+			flags:       flags,
+			description: description,
+			isGiven:     false,
+		},
+		defaultValue: defaultValue,
+		value:        defaultValue,
+		minValue:     min,
+		maxValue:     max,
+	}
+
 	optionsList = append(optionsList, &newOption)
 	return &newOption
 }
@@ -335,8 +352,19 @@ func newStringOption(category optionCategory, name, flags, description, defaultV
 	if !strings.Contains(flags, "=") {
 		panic("Missing value name in string option " + flags)
 	}
-	newDefinition := optionDefinition{category, name, flags, description, "string"}
-	newOption := stringOption{definition: newDefinition, defaultValue: defaultValue, value: defaultValue}
+
+	newOption := stringOption{
+		baseOption: baseOption{
+			category:    category,
+			name:        name,
+			flags:       flags,
+			description: description,
+			isGiven:     false,
+		},
+		defaultValue: defaultValue,
+		value:        defaultValue,
+	}
+
 	optionsList = append(optionsList, &newOption)
 	return &newOption
 }
@@ -347,25 +375,12 @@ func newStringOption(category optionCategory, name, flags, description, defaultV
 
 var flagToOptionMap = initFlagToOptionMap()
 
-// Input v should be of type *option.
-func asOption(v interface{}) option {
-	switch f := v.(type) {
-	case *boolOption:
-		return f
-	case *intOption:
-		return f
-	case *stringOption:
-		return f
-	}
-	panic("Not an option pointer: " + fmt.Sprintf("%#v", v))
-}
-
-func initFlagToOptionMap() map[string]option {
-	m := make(map[string]option)
-	for _, opt := range optionsList {
+func initFlagToOptionMap() map[string]anyOption {
+	m := make(map[string]anyOption)
+	for _, option := range optionsList {
 		// Process flags string to drop sample value and support slashes.
-		option := asOption(opt)
-		flagsArray := addAndGetWithSlashOptionFlags(option.getDefinition().flags)
+		base := option.getBaseOption()
+		flagsArray := addAndGetWithSlashOptionFlags(base.flags)
 		for _, flag := range flagsArray {
 			if m[flag] != nil {
 				panic("Option flag doubly-specific: " + flag)
@@ -412,7 +427,7 @@ func splitOptionFlagAndValue(option string) (string, string) {
 	return option, ""
 }
 
-func getOptionByFlag(flag string) option {
+func tryGetOptionByFlag(flag string) anyOption {
 	flag, _ = splitOptionFlagAndValue(flag)
 
 	// Will return nil when not found.
@@ -469,8 +484,8 @@ func escapeString(s string) string {
 	return buffer.String()
 }
 
-func getFirstOptionFlag(option option) string {
-	return strings.Split(option.getDefinition().flags, "|")[0]
+func getFirstOptionFlag(option anyOption) string {
+	return strings.Split(option.getBaseOption().flags, "|")[0]
 }
 
 func printNeatColumns(arrayOfArrays [][]string, initialIndent, numSpacesBetween int) {
@@ -559,7 +574,7 @@ func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool
 	flag, value := splitOptionFlagAndValue(argumentString)
 
 	// Get and check option.
-	option := getOptionByFlag(flag)
+	option := tryGetOptionByFlag(flag)
 	if option == nil {
 		putln("Unrecognized option \"%v\" given in the %v.", flag, sourceName)
 		exit(1)
@@ -572,49 +587,45 @@ func parseAndSetArgument(argumentString, sourceName string, allowNonOptions bool
 	}
 
 	// Set value if any.
-	def := option.getDefinition()
-	flags := def.flags
+	flags := option.getBaseOption().flags
 
-	switch def.valueTypeName {
-	case "bool":
+	switch typedOption := option.(type) {
+	case *boolOption:
 		if value != "" {
 			putln("Option %v read from the %v cannot take a value", flags, sourceName)
 			exit(1)
 		}
-		b := option.(*boolOption)
-		b.isGiven = true
+		typedOption.isGiven = true
 
 		// Specifying boolean options each time will toggle its value.
-		b.value = !b.value
-		value = strconv.FormatBool(b.value)
+		typedOption.value = !typedOption.value
+		value = strconv.FormatBool(typedOption.value)
 
-	case "int":
+	case *intOption:
 		if value == "" {
 			putln("Option %v read from the %v requires a value.", flags, sourceName)
 			exit(1)
 		}
-		i := option.(*intOption)
 		number, err := strconv.Atoi(value)
-		if (err != nil) || (number < i.minValue) || (number > i.maxValue) {
+		if (err != nil) || (number < typedOption.minValue) || (number > typedOption.maxValue) {
 			putln("Option %v read from the %v must be an integer between %v and %v inclusive.",
-				argumentString, sourceName, i.minValue, i.maxValue)
+				argumentString, sourceName, typedOption.minValue, typedOption.maxValue)
 			exit(1)
 		}
-		i.isGiven = true
-		i.value = number
+		typedOption.isGiven = true
+		typedOption.value = number
 		value = strconv.Itoa(number)
 
-	case "string":
+	case *stringOption:
 		if value == "" {
 			putln("Option %v read from the %v requires a value.", flags, sourceName)
 			exit(1)
 		}
-		s := option.(*stringOption)
-		s.isGiven = true
-		s.value = value
+		typedOption.isGiven = true
+		typedOption.value = value
 
 	default:
-		panic("Bad valueTypeName: " + def.valueTypeName)
+		panic(fmt.Sprintf("Bad option type: %#v", typedOption))
 	}
 
 	optionArguments = append(optionArguments, argumentString)
@@ -727,7 +738,7 @@ func setBooleanOptionValue(optionToSet *boolOption, arguments []string, allowNon
 				break
 			}
 		}
-		option := getOptionByFlag(arg)
+		option := tryGetOptionByFlag(arg)
 		if option == nil {
 			// Ignore invalid options for now.
 			continue
@@ -828,7 +839,7 @@ func printArgumentsAsList(arguments []string, allowNonOptions bool) {
 			}
 		}
 		flag, _ := splitOptionFlagAndValue(argument)
-		option := getOptionByFlag(flag)
+		option := tryGetOptionByFlag(flag)
 		if option == nil {
 			arrayOfArrays[pos] = []string{argument, ":", "Unknown option"}
 		} else {
@@ -837,7 +848,7 @@ func printArgumentsAsList(arguments []string, allowNonOptions bool) {
 					endOfOptions = true
 				}
 			}
-			arrayOfArrays[pos] = []string{argument, ":", option.getDefinition().flags}
+			arrayOfArrays[pos] = []string{argument, ":", option.getBaseOption().flags}
 		}
 	}
 
@@ -878,9 +889,10 @@ func loadArgumentsFromConfigString(arguments []string, sourceName string) {
 func checkForDisallowedConfigOptions(arguments []string, sourceName string) {
 	for _, argument := range arguments {
 		flag, _ := splitOptionFlagAndValue(argument)
-		option := getOptionByFlag(flag)
-		if disallowedConfigOptions[option.getDefinition().name] {
-			putln("Please remove option %v which is not allowed in the %v.", option.getDefinition().flags, sourceName)
+		option := tryGetOptionByFlag(flag)
+		base := option.getBaseOption()
+		if disallowedConfigOptions[base.name] {
+			putln("Please remove option %v which is not allowed in the %v.", base.flags, sourceName)
 			exit(1)
 		}
 	}
@@ -889,7 +901,7 @@ func checkForDisallowedConfigOptions(arguments []string, sourceName string) {
 func checkForUnrecognizedOptions(arguments []string, sourceName string) {
 	for _, argument := range arguments {
 		flag, _ := splitOptionFlagAndValue(argument)
-		option := getOptionByFlag(flag)
+		option := tryGetOptionByFlag(flag)
 		if option == nil {
 			putln("Please remove unknown option %v given in the %v.", flag, sourceName)
 			exit(1)
@@ -905,8 +917,8 @@ func validateArguments() {
 	// Search where.
 	if optionSearchNamesOnly.value && optionSearchContentsOnly.value {
 		putln("Only one of %v and %v can be given at a time.",
-			optionSearchNamesOnly.getDefinition().flags,
-			optionSearchContentsOnly.getDefinition().flags)
+			optionSearchNamesOnly.flags,
+			optionSearchContentsOnly.flags)
 		exit(1)
 	}
 
@@ -934,11 +946,11 @@ func validateArguments() {
 	}
 	if count > 1 {
 		putln("Only one of %v, %v, %v, %v and %v can be given at a time.",
-			optionFormat0ShowLinesOnly.getDefinition().flags,
-			optionFormat1ShowFileNamesAndLines.getDefinition().flags,
-			optionFormat2ShowFileNamesAndCounts.getDefinition().flags,
-			optionFormat3ShowFileNamesOnly.getDefinition().flags,
-			optionFormat.getDefinition().flags)
+			optionFormat0ShowLinesOnly.flags,
+			optionFormat1ShowFileNamesAndLines.flags,
+			optionFormat2ShowFileNamesAndCounts.flags,
+			optionFormat3ShowFileNamesOnly.flags,
+			optionFormat.flags)
 	}
 
 	// Enable output file automatically when spawn is specified.
@@ -951,7 +963,7 @@ func validateArguments() {
 		optionEditor.value = os.Getenv(editorEnvVar)
 		if optionEditor.value == "" {
 			putln("Editor not specified for spawn. Please use the %v option or set the environment variable %v.",
-				optionEditor.getDefinition().flags, editorEnvVar)
+				optionEditor.flags, editorEnvVar)
 			exit(1)
 		}
 	}
@@ -959,8 +971,8 @@ func validateArguments() {
 	// Cannot set and unset config at the same time.
 	if (optionSetConfig.value != "") && (optionUnsetConfig.value != "") {
 		putln("Cannot specify %v and %v at the same time.",
-			optionSetConfig.getDefinition().flags,
-			optionUnsetConfig.getDefinition().flags)
+			optionSetConfig.flags,
+			optionUnsetConfig.flags)
 		exit(1)
 	}
 
@@ -968,9 +980,10 @@ func validateArguments() {
 	if len(nonOptionArguments) > 0 {
 		for _, argument := range optionArguments {
 			flag, _ := splitOptionFlagAndValue(argument)
-			option := getOptionByFlag(flag)
-			if disallowedConfigOptions[option.getDefinition().name] {
-				putln("Cannot specify search strings when specifying the %v option.", option.getDefinition().flags)
+			option := tryGetOptionByFlag(flag)
+			base := option.getBaseOption()
+			if disallowedConfigOptions[base.name] {
+				putln("Cannot specify search strings when specifying the %v option.", base.flags)
 				exit(1)
 			}
 		}
