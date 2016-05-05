@@ -116,7 +116,7 @@ func getContextLineByDelta(delta int) contextLine {
 	}
 
 	if delta < 0 {
-		index := addToContextLineIndex(preContextLines.startIndex, delta)
+		index := addToContextLineIndex(preContextLines.startIndex, delta+1)
 		return preContextLines.lines[index]
 	}
 
