@@ -64,7 +64,9 @@ func pushColoring(color *color.Color) {
 
 func popColoring() {
 	if colorNestLevel == 0 {
-		panic("No more coloring to pop")
+		// Don't panic here because this line may get hit during Ctrl+C.
+		putln("Warning: No more coloring to pop")
+		return
 	}
 	colorNestLevel--
 	if colorNestLevel == 0 {
