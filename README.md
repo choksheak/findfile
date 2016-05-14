@@ -29,7 +29,7 @@ Don't worry, this is not a piece of malware or spyware! If you are skeptical, ju
 
 We currently provide pre-built binaries for Windows AMD64/Intel64 and Ubuntu Linux AMD64/Intel64:
 
-- [**Download Page for Pre-Built Binaries**] (https://github.com/choksheak/findfile/tree/master/distribution)
+- [**Download Page for Pre-Built Binaries**] (https://github.com/choksheak/findfile/tree/master/distribution) (Click on the zip file you want, and then click on "View Raw" to download)
 
 If you need the software for a different OS/Architecture, please feel free to build it yourself using these steps.
 
