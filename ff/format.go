@@ -36,19 +36,23 @@ import (
 // Variables.
 
 var (
-	needColoring                bool
-	needMatchDecorations        bool
-	showFileNamesOnly           bool
-	currentMatchCount           int
-	currentLineNumber           int
-	currentLineIntArray         = make([]int, 0, 1000)
-	beginColorIndexes           = make(sort.IntSlice, 0, 20)
-	endColorIndexes             = make(sort.IntSlice, 0, 20)
-	contextColumnTruncationMark = stringToIntArray("...")
-	contextColumnBeginIndex     int
-	contextColumnEndIndex       int
-	outputFormatString          = outputFormatDefault
-	outputFormatFuncArray       []func()
+	needColoring                       bool
+	needMatchDecorations               bool
+	showFileNamesOnly                  bool
+	currentMatchCount                  int
+	currentLineNumber                  int
+	currentLineIntArray                = make([]int, 0, 1000)
+	beginColorIndexes                  = make(sort.IntSlice, 0, 20)
+	endColorIndexes                    = make(sort.IntSlice, 0, 20)
+	contextColumnTruncationMark        = stringToIntArray("...")
+	contextColumnBeginIndex            int
+	contextColumnEndIndex              int
+	contextColumnActualIndexes         []int
+	contextColumnActualLength          int
+	contextColumnFirstColorActualIndex int
+	contextColumnLastColorActualIndex  int
+	outputFormatString                 = outputFormatDefault
+	outputFormatFuncArray              []func()
 )
 
 /**************************************************************************/
@@ -357,23 +361,34 @@ func transformSingleOutputLine(line []int, needCalculateContextColumns bool) []i
 // Format context columns.
 
 // Returns a new array with the mapping, and the actual length of the string.
-func createLineIndexMapping(line []int) ([]int, int) {
+func createContextColumnsLineIndexMapping(line []int) {
+	// No need to recalculate for the same line.
+	if contextColumnActualIndexes != nil {
+		return
+	}
+
 	// Maps the index in line to the actual index of the printed string.
-	actualIndexes := make([]int, len(line))
-	actualLength := 0
+	contextColumnActualIndexes = make([]int, len(line))
+	contextColumnActualLength = 0
+	contextColumnFirstColorActualIndex = -1
+	contextColumnLastColorActualIndex = -1
+
 	for pos, char := range line {
 		if char >= 0 {
-			actualIndexes[pos] = actualLength
-			actualLength++
+			contextColumnActualIndexes[pos] = contextColumnActualLength
+			contextColumnActualLength++
 		} else if char == color1RuneBegin {
 			// Attach color begin to the next character.
-			actualIndexes[pos] = actualLength
+			contextColumnActualIndexes[pos] = contextColumnActualLength
+			if contextColumnFirstColorActualIndex < 0 {
+				contextColumnFirstColorActualIndex = contextColumnActualLength
+			}
 		} else if char == colorRuneEnd {
 			// Attach color end to the previous character.
-			actualIndexes[pos] = actualLength - 1
+			contextColumnActualIndexes[pos] = contextColumnActualLength - 1
+			contextColumnLastColorActualIndex = contextColumnActualLength
 		}
 	}
-	return actualIndexes, actualLength
 }
 
 func calculateContextColumns(line []int) {
@@ -381,22 +396,38 @@ func calculateContextColumns(line []int) {
 		return
 	}
 
+	// Reset to indicate it was not calculated yet.
+	contextColumnActualIndexes = nil
+
 	// If the expanded string is already shorter, then return.
 	// "line" is an expanded string because it could contain color escape codes,
 	// which does not take up any space when printed.
 	if len(line) <= optionContextColumns.value {
 		contextColumnBeginIndex = 0
 		contextColumnEndIndex = optionContextColumns.value
+		//putln("calculateContextColumns0: min %v max %v len %v", contextColumnBeginIndex, contextColumnEndIndex, contextColumnEndIndex-contextColumnBeginIndex)
 		return
 	}
 
 	// Find the actual indexes and length.
-	actualIndexes, actualLength := createLineIndexMapping(line)
+	createContextColumnsLineIndexMapping(line)
 
 	// If the printed string is really shorter, then return.
-	if actualLength <= optionContextColumns.value {
+	if contextColumnActualLength <= optionContextColumns.value {
 		contextColumnBeginIndex = 0
 		contextColumnEndIndex = optionContextColumns.value
+		//putln("calculateContextColumns1: min %v max %v len %v", contextColumnBeginIndex, contextColumnEndIndex, contextColumnEndIndex-contextColumnBeginIndex)
+		return
+	}
+
+	// If matched string is longer than context column, shrink to matched string.
+	if contextColumnFirstColorActualIndex >= 0 &&
+		contextColumnLastColorActualIndex >= 0 &&
+		contextColumnLastColorActualIndex-contextColumnFirstColorActualIndex >= optionContextColumns.value {
+
+		contextColumnBeginIndex = contextColumnFirstColorActualIndex
+		contextColumnEndIndex = contextColumnLastColorActualIndex
+		//putln("calculateContextColumns2: min %v max %v len %v", contextColumnBeginIndex, contextColumnEndIndex, contextColumnEndIndex-contextColumnBeginIndex)
 		return
 	}
 
@@ -405,24 +436,12 @@ func calculateContextColumns(line []int) {
 	var maxActualIndex int
 
 	if needMatchDecorations {
-		minActualIndex = -1
-		for i := 0; i < len(line); i++ {
-			if line[i] == color1RuneBegin {
-				minActualIndex = actualIndexes[i]
-				break
-			}
-		}
+		minActualIndex = contextColumnFirstColorActualIndex
 		if minActualIndex == -1 {
 			panic(fmt.Sprintf("Begin color missing: line=%v", intArrayToDebugString(line)))
 		}
 
-		maxActualIndex := -1
-		for i := len(line) - 1; i >= 0; i-- {
-			if line[i] == colorRuneEnd {
-				maxActualIndex = actualIndexes[i] + 1
-				break
-			}
-		}
+		maxActualIndex = contextColumnLastColorActualIndex
 		if maxActualIndex == -1 {
 			panic(fmt.Sprintf("End color missing: line=%v", intArrayToDebugString(line)))
 		}
@@ -438,7 +457,7 @@ func calculateContextColumns(line []int) {
 
 	contextActualLength := maxActualIndex - minActualIndex
 
-	//putln("calculateContextColumns1: min %v max %v len %v actualLength %v", minActualIndex, maxActualIndex, contextActualLength, actualLength)
+	//putln("calculateContextColumns3: min %v max %v len %v actualLength %v", minActualIndex, maxActualIndex, contextActualLength, contextColumnActualLength)
 
 	// Expand the context if the matching subsequence is too short.
 	if contextActualLength < optionContextColumns.value {
@@ -450,8 +469,8 @@ func calculateContextColumns(line []int) {
 		if minActualIndex < 0 {
 			minActualIndex = 0
 			maxActualIndex = optionContextColumns.value
-		} else if maxActualIndex > actualLength {
-			maxActualIndex = actualLength
+		} else if maxActualIndex > contextColumnActualLength {
+			maxActualIndex = contextColumnActualLength
 			minActualIndex = maxActualIndex - optionContextColumns.value
 			if minActualIndex < 0 {
 				minActualIndex = 0
@@ -459,14 +478,14 @@ func calculateContextColumns(line []int) {
 		}
 	}
 
-	/*
-	   putln("calculateContextColumns2: min %v max %v len %v", minActualIndex, maxActualIndex, contextActualLength)
-	   for pos, char := range line {
-	       puts(fmt.Sprintf("[%c,%v,%v]", char, pos, actualIndexes[pos]))
-	   }
-	   putBlankLine()
-	   flush()
-	*/
+	if false {
+		putln("calculateContextColumns4: min %v max %v len %v", minActualIndex, maxActualIndex, contextActualLength)
+		for pos, char := range line {
+			puts(fmt.Sprintf("[%c,%v,%v]", char, pos, contextColumnActualIndexes[pos]))
+		}
+		putBlankLine()
+		flush()
+	}
 
 	contextColumnBeginIndex = minActualIndex
 	contextColumnEndIndex = maxActualIndex
@@ -488,18 +507,18 @@ func truncateToContextColumns(line []int) []int {
 	}
 
 	// Find the actual indexes and length.
-	actualIndexes, actualLength := createLineIndexMapping(line)
+	createContextColumnsLineIndexMapping(line)
 
 	// If really too short, just return.
-	if actualLength <= contextColumnBeginIndex {
+	if contextColumnActualLength <= contextColumnBeginIndex {
 		return append(line[:0], contextColumnTruncationMark...)
 	}
 
 	// Get end index.
 	needEndDots := true
 	actualEndIndex := contextColumnEndIndex
-	if actualEndIndex >= actualLength {
-		actualEndIndex = actualLength
+	if actualEndIndex >= contextColumnActualLength {
+		actualEndIndex = contextColumnActualLength
 		needEndDots = false
 
 		// If we just need the whole string, just return now.
@@ -516,8 +535,8 @@ func truncateToContextColumns(line []int) []int {
 
 	// Convert actual begin index into fake begin index.
 	beginIndex := -1
-	for i := 0; i < len(actualIndexes); i++ {
-		if contextColumnBeginIndex == actualIndexes[i] {
+	for i := 0; i < len(contextColumnActualIndexes); i++ {
+		if contextColumnBeginIndex == contextColumnActualIndexes[i] {
 			beginIndex = i
 			break
 		}
@@ -526,18 +545,18 @@ func truncateToContextColumns(line []int) []int {
 		panic(fmt.Sprintf(
 			"First fake index missing: contextColumnBeginIndex=%v, actualIndexes=%v, line=%v",
 			contextColumnBeginIndex,
-			actualIndexes,
+			contextColumnActualIndexes,
 			intArrayToDebugString(line)))
 	}
 
 	// Convert actual end index into fake end index.
 	endIndex := -1
-	if actualEndIndex >= actualLength {
+	if actualEndIndex >= contextColumnActualLength {
 		// The endIndex is always one past the last position.
 		endIndex = len(line)
 	} else {
-		for i := len(actualIndexes) - 1; i >= 0; i-- {
-			if actualEndIndex == actualIndexes[i] {
+		for i := len(contextColumnActualIndexes) - 1; i >= 0; i-- {
+			if actualEndIndex == contextColumnActualIndexes[i] {
 				endIndex = i
 				break
 			}
@@ -547,7 +566,7 @@ func truncateToContextColumns(line []int) []int {
 		panic(fmt.Sprintf(
 			"Last fake index missing: actualEndIndex=%v, actualIndexes=%v, line=%v",
 			actualEndIndex,
-			actualIndexes,
+			contextColumnActualIndexes,
 			intArrayToDebugString(line)))
 	}
 
